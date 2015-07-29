@@ -2,7 +2,6 @@ __author__ = 'nykh'
 
 import requests as req
 import pathlib
-import os
 import qiniu
 from qiniu import BucketManager
 
@@ -111,11 +110,17 @@ def get_authentication():
 
 
 if __name__ == '__main__':
+    import configparser
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    options = config['DEFAULT']
+
     # hardcoded now, customizable later
-    bucketname = 'llcetest'
-    bucketurl = 'http://7xkpk9.com1.z0.glb.clouddn.com/'
-    basepath = pathlib.Path('/home/nykh/workspace/qiniu-backup')
-    verbose = False
+    bucketname = options['bucketname']
+    bucketurl = options['bucketurl']
+    basepath = pathlib.Path(options['basepath'])
+    verbose = options.getboolean('verbose')
 
     if not basepath.exists():
         basepath.mkdir()
