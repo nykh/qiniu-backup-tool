@@ -19,3 +19,7 @@ The **Qiniu python SDK** provides convenient interface for checking status and l
 Because we would like to perform **incremental backup**, the program must filter out the files that already exist on the local drive. There are two ways to keep track of the files. The first approach is perhaps easier to implement, which is to store the keys and timestamp as a key-value pair on a local database. Python provides library such as *dbm* or *shelve* that allow us to use such databases with the convenience of a native *dict* object. The second approach is to traverse the local file system and cross out each file whose (current or later) version already exist on the local drive. This has the benefit that if a file is removed locally by purpose or mistake it can be restored by the backup, regardless of what is stored in a database. Python also has relatively convenient library **os** and **pathlib** to traverse a local directory. Because of this benefit, I choose to use the second approach, traversing the local drive each time I need to compare.
 
 To separate parameters data and program itself, I use the **configparser** library to parse a **config.ini** file.
+
+## Problem Statement (Phase 2)
+
+Next, modify the program so that the update works both way. If there is a file on the local drive that is not on the cloud, we would like to **upload** such files.
