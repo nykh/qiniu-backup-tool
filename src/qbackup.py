@@ -6,6 +6,8 @@ import time
 import qiniu
 from qiniu import BucketManager
 
+BATCH_LIMIT = 10   # maybe optimized under real condition
+
 
 def list_remote_bucket(bucketname):
     """
@@ -17,14 +19,13 @@ def list_remote_bucket(bucketname):
     key_list = {}
     done = False
     marker = None
-    BATCH_LIMIT = 10   # maybe optimized under real condition
 
-    q = get_authentication()
-    bucket = BucketManager(q)
+    auth = get_authentication()
+    bucket = BucketManager(auth)
 
     while not done:
-        ret, done, info = bucket.list(bucketname, marker=marker,
-                                      limit=BATCH_LIMIT)
+        ret, done, _ = bucket.list(bucketname, marker=marker,
+                                   limit=BATCH_LIMIT)
         marker = ret.get('marker')
         for resource in ret['items']:
             key_list[resource['key']] = resource['putTime']
@@ -48,7 +49,8 @@ def list_local_files(basepath):
             local_filename_and_mtime[keypath] = mtime
     return local_filename_and_mtime
 
-def compare_local_and_remote(remote_key_and_ts, local_file_and_ts):
+
+def compare_local_and_remote(remote_key_and_ts, local_filename_and_mtime):
     '''
     Compare the local files and remote list of items,
     produce a tuple of two lists, one lists files on remote
@@ -124,8 +126,8 @@ def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
                 dirpath /= level
                 if not dirpath.exists():
                     os.mkdir(str(dirpath))
-        with open(str(basepath / process_key), 'wb') as of:
-            of.write(res.content)
+        with open(str(basepath / process_key), 'wb') as local_copy:
+            local_copy.write(res.content)
         if verbose:
             print('downloaded: ' + key)
 
@@ -141,18 +143,19 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
     '''
     import mimetypes
 
-    q = get_authentication()
-    token = q.upload_token(bucketname)
+    auth = get_authentication()
+    token = auth.upload_token(bucketname)
     params = {'x:a': 'a'}
 
     for file in filelist:
         file_path = str(basepath / file)
         mime_type = mimetypes.guess_type(file_path)
-        ret, info = qiniu.put_file(token, key=file, file_path=file_path,
-                                   params=params, mime_type=mime_type, check_crc=True)
+        ret, _ = qiniu.put_file(token, key=file,
+                                file_path=file_path, params=params,
+                                mime_type=mime_type, check_crc=True)
         assert ret['key'] == file
 
-        future = time.time() + 10 # sec since Epoch
+        future = time.time() + 10  # sec since Epoch
         os.utime(file_path, times=(future, future))
         # reset the atime and mtime in the future so that the file doesn't
         # trigger the download criteria (remote timestamp > local timestamp)
@@ -179,23 +182,23 @@ def get_authentication():
 if __name__ == '__main__':
     import configparser
 
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    options = config['DEFAULT']
+    CONFIG = configparser.ConfigParser()
+    CONFIG.read('config.ini')
+    OPTIONS = CONFIG['DEFAULT']
 
     # hardcoded now, customizable later
-    bucketname = options['bucketname']
-    bucketurl = options['bucketurl']
-    basepath = pathlib.Path(options['basepath'])
-    verbose = options.getboolean('verbose')
+    BUCKET_NAME = OPTIONS['bucketname']
+    BUCKET_URL = OPTIONS['bucketurl']
+    BASE_PATH = pathlib.Path(OPTIONS['basepath'])
+    VERBOSE = OPTIONS.getboolean('verbose')
 
-    if not basepath.exists():
-        basepath.mkdir()
-    assert basepath.exists()
+    if not BASE_PATH.exists():
+        BASE_PATH.mkdir()
+    assert BASE_PATH.exists()
 
-    remote_key_and_timestamp = list_remote_bucket(bucketname)
-    local_filename_and_mtime = list_local_files(basepath)
-    down, up = compare_local_and_remote(remote_key_and_timestamp,
-                                        local_filename_and_mtime)
-    batch_download(bucketurl, down, basepath, verbose=verbose)
-    batch_upload(bucketname, up, basepath, verbose=verbose)
+    REMOTE_KEY_AND_TIMESTAMP = list_remote_bucket(BUCKET_NAME)
+    LOCAL_FILE_AND_MTIME = list_local_files(BASE_PATH)
+    DOWNLOAD_FILE_LIST, UPLOAD_FILE_LIST = compare_local_and_remote(
+        REMOTE_KEY_AND_TIMESTAMP, LOCAL_FILE_AND_MTIME)
+    batch_download(BUCKET_URL, DOWNLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
+    batch_upload(BUCKET_NAME, UPLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
