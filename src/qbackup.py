@@ -18,8 +18,7 @@ def list_bucket(bucketname):
     marker = None
     BATCH_LIMIT = 10   # maybe optimized under real condition
 
-    access_key, secret_key = get_authentication()
-    q = qiniu.Auth(access_key, secret_key)
+    q = get_authentication()
     bucket = BucketManager(q)
 
     while not done:
@@ -57,10 +56,12 @@ def compare_local_and_remote(remote_key_and_ts, basepath):
         '''
         remote /= int(10e6)
         local = int(local)
-        if remote > local: return 1
-        elif remote < local: return -1
-        else: return 0
-
+        if remote > local:
+            return 1
+        elif remote < local:
+            return -1
+        else:
+            return 0
 
     downloadend = []
     uploadend = []
@@ -70,15 +71,14 @@ def compare_local_and_remote(remote_key_and_ts, basepath):
             downloadend.append(key)
         else:
             cmp = compare_timestamp(ts, localpath.stat().st_mtime)
-            if cmp > 0:  # remote > local
+            if cmp > 0:  # remote is later than local
                 downloadend.append(key)
-            elif cmp < 0:
-                uploadend.append(key)
 
     return (downloadend, uploadend)
 
 
-def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x, verbose=False):
+def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
+                   verbose=False):
     '''
     side-effect: batch download list of resources from qiniu bucket
     :except: raises exception if any of the request return an error
@@ -86,27 +86,53 @@ def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x, verb
     :param keylist: list of keys for downloading
     :param output_policy: callback function that determines the output
                           filename based on the key
+    :param verbose: if True print each file downloaded
     '''
 
     for key in keylist:
         res = req.get(bucketurl + key)
-        if res.status_code != 200:
-            raise Exception
+        assert res.status_code == 200
         with open(str(basepath / output_policy(key)), 'wb') as of:
             of.write(res.content)
-        if verbose: print('downloaded: ' + key)
+        if verbose:
+            print('downloaded: ' + key)
+
+
+def batch_upload(bucketname, filelist, basepath, verbose=False):
+    '''
+
+    :param bucketname:
+    :param filelist: list of file names (including path) to be uploaded
+    :param basepath:
+    :param verbose: if True print each file uploaded
+    :return:
+    '''
+    import mimetypes
+
+    q = get_authentication()
+    token = q.upload_token(bucketname)
+    params = {'x:a': 'a'}
+
+    for file in filelist:
+        file_path = str(basepath / file)
+        mime_type = mimetypes.guess_type(file_path)
+        ret, info = qiniu.put_file(token, key=file, file_path=file_path,
+                                   params=params, mime_type=mime_type, check_crc=True)
+        assert ret['key'] == file
+        if verbose:
+            print('uploaded: ' + file)
 
 
 def get_authentication():
     '''
 
     :rtype : object
-    :return: tuple of (access_key, secret_key)
+    :return: qiniu.Auth object
     '''
     with open('keys', 'r') as keyfile:
         access_key = keyfile.readline()[12:].strip()
         secret_key = keyfile.readline()[12:].strip()
-    return (access_key, secret_key)
+    return qiniu.Auth(access_key, secret_key)
 
 
 if __name__ == '__main__':
@@ -129,3 +155,4 @@ if __name__ == '__main__':
     key_and_timestamp = list_bucket(bucketname)
     down, up = compare_local_and_remote(key_and_timestamp, basepath)
     batch_download(bucketurl, down, basepath, verbose=verbose)
+    batch_upload(bucketname, up, basepath, verbose=True)
