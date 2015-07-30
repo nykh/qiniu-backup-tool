@@ -112,6 +112,9 @@ def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
                           filename based on the key
     :param verbose: if True print each file downloaded
     '''
+    if not keylist:
+        return
+
     import requests as req
 
     for key in keylist:
@@ -141,6 +144,9 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
     :param verbose: if True print each file uploaded
     :return:
     '''
+    if not filelist:
+        return
+
     import mimetypes
 
     auth = get_authentication()
@@ -203,3 +209,6 @@ if __name__ == '__main__':
         REMOTE_KEY_AND_TIMESTAMP, LOCAL_FILE_AND_MTIME)
     batch_download(BUCKET_URL, DOWNLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
     batch_upload(BUCKET_NAME, UPLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
+
+    if not DOWNLOAD_FILE_LIST and not UPLOAD_FILE_LIST:
+        print("Cloud and local folder are already synched!")
