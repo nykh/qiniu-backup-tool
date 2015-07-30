@@ -149,7 +149,8 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
 
     for file in filelist:
         file_path = str(basepath / file)
-        mime_type = mimetypes.guess_type(file_path)
+        mime_type = mimetypes.guess_type(file_path)[0]
+        # guess_type() return a tuple (mime_type, encoding), only mime_type is needed
         ret, _ = qiniu.put_file(token, key=file,
                                 file_path=file_path, params=params,
                                 mime_type=mime_type, check_crc=True)
