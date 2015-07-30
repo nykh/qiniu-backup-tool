@@ -1,6 +1,5 @@
 __author__ = 'nykh'
 
-import requests as req
 import pathlib
 import os
 import time
@@ -111,11 +110,21 @@ def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
                           filename based on the key
     :param verbose: if True print each file downloaded
     '''
+    import requests as req
 
     for key in keylist:
         res = req.get(bucketurl + key)
         assert res.status_code == 200
-        with open(str(basepath / output_policy(key)), 'wb') as of:
+        process_key = output_policy(key)
+        if '/' in process_key:
+            # recursively validate each level
+            levels = os.path.dirname(process_key).split('/')
+            dirpath = basepath
+            for level in levels:
+                dirpath /= level
+                if not dirpath.exists():
+                    os.mkdir(str(dirpath))
+        with open(str(basepath / process_key), 'wb') as of:
             of.write(res.content)
         if verbose:
             print('downloaded: ' + key)

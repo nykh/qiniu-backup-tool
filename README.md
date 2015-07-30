@@ -32,6 +32,8 @@ Another problem we encountered during testing was that python does not easily ha
 
 The Qiniu cloud file system model is different from POSIX file system in that it is totally flat. Even though a key string (eg. 'dir/example') looks like a path, it dows not imply there is a directory 'dir'. However when we download the resource to UNIX system, it does not allow us to have file name with '/'. Here we have two choices: flat or hierarchy. We can translate '/' to some other character and thus prevent the error, or we can translate it into real path, creating directories if such exists.
 
+I choose to implement it with hierarchy because this way it can be more intuitive to navigate the files.
+
 ### Version Control
 
 The problem once we have bidirectional synchronization is how to determine whether to upload/download a file. We can consider a naive categorization. On the Wenn's graph shown below, the two easy cases: Files that exist remotely but not locally should be downloaded, and vice versa. However, the more complicate situation is when the same file exist on the remote server and local server, since then there is a problem of version control.
@@ -41,3 +43,9 @@ During Phase One, I used a simple criterion, comparing the upload tnime of the r
 If I want to solve this problem, I think I will have to introduce a database that logs the download timestamp of each local file. If the local file has been modified, its timestamp will be later than the one in the database. However, considering this project is for **backup** purpose, I choose to leave out this feature during Phase Two. If a local file has a newer timestamp, the program will just considered it to be the same as the remote copy and no transfer will occur.
 
 ### Renaming problem
+
+## Phase 2 Progress
+
+#### issue: redundant download
+
+A minor issue encountered during the implementation of Phase 2 was that when a file is uploaded from local to remote, its remote timestamp is unfortunately going to be later than the local. So next time when the program is run, it will look like the local file is an old version and download again. This is waste of time and resources we want to prevent. A solution is to use the **os.utime** method to set the ST_MTIME timestamp to a time slightly in the future (I chose 10 sec), such that the local mtime is still later than the remote upload time.
