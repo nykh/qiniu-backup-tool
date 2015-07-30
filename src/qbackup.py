@@ -3,6 +3,7 @@ __author__ = 'nykh'
 import requests as req
 import pathlib
 import os
+import time
 import qiniu
 from qiniu import BucketManager
 
@@ -141,6 +142,12 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
         ret, info = qiniu.put_file(token, key=file, file_path=file_path,
                                    params=params, mime_type=mime_type, check_crc=True)
         assert ret['key'] == file
+
+        future = time.time() + 10 # sec since Epoch
+        os.utime(file_path, times=(future, future))
+        # reset the atime and mtime in the future so that the file doesn't
+        # trigger the download criteria (remote timestamp > local timestamp)
+
         if verbose:
             print('uploaded: ' + file)
 
