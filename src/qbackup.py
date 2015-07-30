@@ -2,18 +2,19 @@ __author__ = 'nykh'
 
 import requests as req
 import pathlib
+import os
 import qiniu
 from qiniu import BucketManager
 
 
-def list_bucket(bucketname):
+def list_remote_bucket(bucketname):
     """
     traverse the buckt through the Qiniu API and return a list of keys
     and timestamp
     :param bucketname:
-    :return: a list of keys to download
+    :return: a dict mapping key to upload time
     """
-    key_list = []
+    key_list = {}
     done = False
     marker = None
     BATCH_LIMIT = 10   # maybe optimized under real condition
@@ -25,19 +26,35 @@ def list_bucket(bucketname):
         ret, done, info = bucket.list(bucketname, marker=marker,
                                       limit=BATCH_LIMIT)
         marker = ret.get('marker')
-        for item in ret['items']:
-            key_list.append((item['key'], item['putTime']))
+        for resource in ret['items']:
+            key_list[resource['key']] = resource['putTime']
 
     return key_list
 
 
-def compare_local_and_remote(remote_key_and_ts, basepath):
+def list_local_files(basepath):
+    '''
+
+    :param basepath:
+    :return:a dict mapping filename to last modified time (ST_MTIME)
+    '''
+    local_filename_and_mtime = {}
+    for path, _, files in os.walk(str(basepath)):
+        for file in files:
+            fullpath = os.path.join(path, file)
+            keypath = fullpath[len(str(basepath))+1:]
+            # strip the basepath from fullpath, such that filename == key
+            mtime = os.stat(fullpath).st_mtime
+            local_filename_and_mtime[keypath] = mtime
+    return local_filename_and_mtime
+
+def compare_local_and_remote(remote_key_and_ts, local_file_and_ts):
     '''
     Compare the local files and remote list of items,
     produce a tuple of two lists, one lists files on remote
     not in local drive (to be downloaded), the other lists files
     that exist on the local drive but not on remote (to be uploaded).
-    :param remote_key_and_ts:
+    :param remote_key_and_ts: output of the `list_bucket` function
     :param basepath:
     :rtype: object
     :return: ([files to be downloaded], [files to be uploaded])
@@ -63,18 +80,23 @@ def compare_local_and_remote(remote_key_and_ts, basepath):
         else:
             return 0
 
-    downloadend = []
-    uploadend = []
-    for key, ts in remote_key_and_ts:
-        localpath = basepath / key
-        if not localpath.exists():
-            downloadend.append(key)
-        else:
-            cmp = compare_timestamp(ts, localpath.stat().st_mtime)
-            if cmp > 0:  # remote is later than local
-                downloadend.append(key)
+    download = []
+    upload = []
 
-    return (downloadend, uploadend)
+    remote_files = set(remote_key_and_ts)
+    local_files = set(local_filename_and_mtime)
+
+    both = local_files.intersection(remote_files)
+
+    download.extend(remote_files.difference(local_files))
+    upload.extend(local_files.difference(remote_files))
+    for key in both:
+        cmp = compare_timestamp(remote_key_and_ts[key],
+                                local_filename_and_mtime[key])
+        if cmp > 0:  # remote is later than local
+            download.append(key)
+
+    return (download, upload)
 
 
 def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
@@ -125,7 +147,10 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
 
 def get_authentication():
     '''
-
+    precondition: file "keys" contains the following content
+    "access_key: ___
+     secret_key: ___"
+    extracts the authenticate keys and return an Auth object
     :rtype : object
     :return: qiniu.Auth object
     '''
@@ -152,7 +177,9 @@ if __name__ == '__main__':
         basepath.mkdir()
     assert basepath.exists()
 
-    key_and_timestamp = list_bucket(bucketname)
-    down, up = compare_local_and_remote(key_and_timestamp, basepath)
+    remote_key_and_timestamp = list_remote_bucket(bucketname)
+    local_filename_and_mtime = list_local_files(basepath)
+    down, up = compare_local_and_remote(remote_key_and_timestamp,
+                                        local_filename_and_mtime)
     batch_download(bucketurl, down, basepath, verbose=verbose)
-    batch_upload(bucketname, up, basepath, verbose=True)
+    batch_upload(bucketname, up, basepath, verbose=verbose)
