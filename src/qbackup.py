@@ -5,6 +5,7 @@ import os
 import time
 import qiniu
 from qiniu import BucketManager
+import qauth
 
 BATCH_LIMIT = 10   # maybe optimized under real condition
 
@@ -20,7 +21,7 @@ def list_remote_bucket(bucketname):
     done = False
     marker = None
 
-    auth = get_authentication()
+    auth = qauth.get_authentication()
     bucket = BucketManager(auth)
 
     while not done:
@@ -149,7 +150,7 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
 
     import mimetypes
 
-    auth = get_authentication()
+    auth = qauth.get_authentication()
     token = auth.upload_token(bucketname)
     params = {'x:a': 'a'}
 
@@ -169,21 +170,6 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
 
         if verbose:
             print('uploaded: ' + file)
-
-
-def get_authentication():
-    '''
-    precondition: file "keys" contains the following content
-    "access_key: ___
-     secret_key: ___"
-    extracts the authenticate keys and return an Auth object
-    :rtype : object
-    :return: qiniu.Auth object
-    '''
-    with open('keys', 'r') as keyfile:
-        access_key = keyfile.readline()[12:].strip()
-        secret_key = keyfile.readline()[12:].strip()
-    return qiniu.Auth(access_key, secret_key)
 
 
 if __name__ == '__main__':
