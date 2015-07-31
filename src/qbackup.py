@@ -19,36 +19,20 @@ class QiniuBackup:
         self.basepath = pathlib.Path(options['basepath'])
 
         self.verbose = options.getboolean('verbose', fallback=False)
-        self.log = options.getboolean('log', fallback=False)
+        self.log_to_file = options.getboolean('log', fallback=False)
 
-        if self.log:
-            self.logfile = open('qbackup-'
-                                + datetime.datetime.now().strftime('%y-%m-%d_%H-%M-%S')
-                                + '.log', 'w')
-            if self.verbose:
-                def _log(s):
-                    self.logfile.write(s + '\n')
-                    print(s)
-                self._log = _log
-            else:
-                def _log(s):
-                    self.logfile.write(s + '\n')
-                self._log = _log
-        elif self.verbose:
-            self._log = print
+        self.ev = EventLogger(verbose=self.verbose,
+                                  log_to_file=self.log_to_file)
 
         self.auth = auth
-
-    def __del__(self):
-        if self.logfile:
-            self.logfile.close()
 
     def synch(self):
         '''
         the main synchroization logic happens here
         :return:None
         '''
-        self._log('Qiniu bucket backup procedure...')
+        self.ev.log('INFO', 'Begin synching ' + str(self.basepath)
+                  + ' <=> Bucket ' + self.bucketname)
 
         self.validate_local_folder()
 
@@ -60,23 +44,23 @@ class QiniuBackup:
 
         # print a message if no file is transfered
         if not download_file_list and not upload_file_list:
-            self._log("Cloud and local folder are already synched!")
+            self.ev.log('INFO', "Cloud and local folder are already synched!")
 
     def validate_local_folder(self):
         if not self.basepath.exists():
-            self._log('could not find ' + str(self.basepath)
+            self.ev.log('WARNING', 'could not find ' + str(self.basepath)
                       + ', create folder')
             try:
                 self.basepath.mkdir()
             except PermissionError:
-                self._log('unable to create folder. Exit now.')
+                self.ev.log('ERR', 'unable to create folder. Exit now.')
                 sys.exit(1)
-            self._log('folder created!')
+            self.ev.log('INFO', 'folder created!')
         elif not self.basepath.is_dir():
-            self._log(str(self.basepath) + ' is not a directory')
+            self.ev.log('ERR', str(self.basepath) + ' is not a directory')
             sys.exit(1)
         elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
-            self._log(str(self.basepath) + ' is not writable')
+            self.ev.log('ERR', str(self.basepath) + ' is not writable')
             sys.exit(1)
 
 
@@ -198,7 +182,7 @@ class QiniuBackup:
             with open(str(self.basepath / process_key), 'wb') as local_copy:
                 local_copy.write(res.content)
             if self.verbose:
-                self._log('downloaded: ' + key)
+                self.ev.log('INFO', 'downloaded: ' + key)
 
     def batch_upload(self, filelist):
         '''
@@ -230,7 +214,40 @@ class QiniuBackup:
             # trigger the download criteria (remote ts > local ts)
 
             if self.verbose:
-                self._log('uploaded: ' + file)
+                self.ev.log('INFO', 'uploaded: ' + file)
+
+
+class EventLogger:
+    def __init__(self, verbose=False, log_to_file=False):
+        if log_to_file:
+            self.logfile = open('qbackup-{}.log'.format(
+                datetime.datetime.now().strftime('%y-%m-%d_%H-%M-%S')
+            ), 'w')
+
+            if verbose:
+                def _log(tag, msg):
+                    msg = EventLogger.format(tag, msg)
+                    self.logfile.write(msg + '\n')
+                    print(msg)
+                self.log = _log
+            else:
+                def _log(tag, msg):
+                    self.logfile.write(EventLogger.format(tag, msg) + '\n')
+                self.log = _log
+        elif verbose:
+            def _log(tag, msg):
+                print(EventLogger.format(tag, msg))
+
+            self.log = _log
+
+    def __del__(self):
+        if self.logfile:
+            self.logfile.close()
+
+    @staticmethod
+    def format(tag, msg):
+        return "{0} [{1}] {2}".format(datetime.datetime.now(),
+                                      tag, msg)
 
 
 if __name__ == '__main__':
@@ -238,7 +255,7 @@ if __name__ == '__main__':
 
     CONFIG = configparser.ConfigParser()
     if not CONFIG.read('config.ini'):
-        print('could not read config file!')
+        print(EventLogger.format('ERR', 'could not read config file!'))
         sys.exit(1)
 
     options = CONFIG['DEFAULT']
