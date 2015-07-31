@@ -22,11 +22,15 @@ class QiniuBackup:
         self.auth = auth
 
     def synch(self):
+        '''
+        the main synchroization logic happens here
+        :return:None
+        '''
         if not self.basepath.exists():
             self.basepath.mkdir()
         elif not self.basepath.is_dir():
             raise FileExistsError(str(self.basepath) + ' is not a directory')
-        elif not os.access(str(self.basepath), mode=os.R_OK | os.X_OK):
+        elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
             raise PermissionError(str(self.basepath) + ' is not writable')
 
         download_file_list, upload_file_list = \
