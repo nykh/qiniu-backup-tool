@@ -181,8 +181,7 @@ class QiniuBackup:
                         os.mkdir(str(dirpath))
             with open(str(self.basepath / process_key), 'wb') as local_copy:
                 local_copy.write(res.content)
-            if self.verbose:
-                self.logger('INFO', 'downloaded: ' + key)
+            self.logger('INFO', 'downloaded: ' + key)
 
     def batch_upload(self, filelist):
         '''
@@ -213,8 +212,7 @@ class QiniuBackup:
             # reset the atime and mtime in the future so that the file doesn't
             # trigger the download criteria (remote ts > local ts)
 
-            if self.verbose:
-                self.logger('INFO', 'uploaded: ' + file)
+            self.logger('INFO', 'uploaded: ' + file)
 
 
 class EventLogger:
