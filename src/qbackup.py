@@ -21,7 +21,7 @@ class QiniuBackup:
         self.verbose = options.getboolean('verbose', fallback=False)
         self.log_to_file = options.getboolean('log', fallback=False)
 
-        self.ev = EventLogger(verbose=self.verbose,
+        self.logger = EventLogger(verbose=self.verbose,
                                   log_to_file=self.log_to_file)
 
         self.auth = auth
@@ -31,7 +31,7 @@ class QiniuBackup:
         the main synchroization logic happens here
         :return:None
         '''
-        self.ev.log('INFO', 'Begin synching ' + str(self.basepath)
+        self.logger('INFO', 'Begin synching ' + str(self.basepath)
                   + ' <=> Bucket ' + self.bucketname)
 
         self.validate_local_folder()
@@ -44,23 +44,23 @@ class QiniuBackup:
 
         # print a message if no file is transfered
         if not download_file_list and not upload_file_list:
-            self.ev.log('INFO', "Cloud and local folder are already synched!")
+            self.logger('INFO', "Cloud and local folder are already synched!")
 
     def validate_local_folder(self):
         if not self.basepath.exists():
-            self.ev.log('WARNING', 'could not find ' + str(self.basepath)
+            self.logger('WARNING', 'could not find ' + str(self.basepath)
                       + ', create folder')
             try:
                 self.basepath.mkdir()
             except PermissionError:
-                self.ev.log('ERR', 'unable to create folder. Exit now.')
+                self.logger('ERR', 'unable to create folder. Exit now.')
                 sys.exit(1)
-            self.ev.log('INFO', 'folder created!')
+            self.logger('INFO', 'folder created!')
         elif not self.basepath.is_dir():
-            self.ev.log('ERR', str(self.basepath) + ' is not a directory')
+            self.logger('ERR', str(self.basepath) + ' is not a directory')
             sys.exit(1)
         elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
-            self.ev.log('ERR', str(self.basepath) + ' is not writable')
+            self.logger('ERR', str(self.basepath) + ' is not writable')
             sys.exit(1)
 
 
@@ -182,7 +182,7 @@ class QiniuBackup:
             with open(str(self.basepath / process_key), 'wb') as local_copy:
                 local_copy.write(res.content)
             if self.verbose:
-                self.ev.log('INFO', 'downloaded: ' + key)
+                self.logger('INFO', 'downloaded: ' + key)
 
     def batch_upload(self, filelist):
         '''
@@ -214,7 +214,7 @@ class QiniuBackup:
             # trigger the download criteria (remote ts > local ts)
 
             if self.verbose:
-                self.ev.log('INFO', 'uploaded: ' + file)
+                self.logger('INFO', 'uploaded: ' + file)
 
 
 class EventLogger:
@@ -239,6 +239,9 @@ class EventLogger:
                 print(EventLogger.format(tag, msg))
 
             self.log = _log
+
+    def __call__(self, tag, msg):
+        self.log(tag, msg)
 
     def __del__(self):
         if self.logfile:
