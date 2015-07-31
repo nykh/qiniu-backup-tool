@@ -70,5 +70,52 @@ I also read in the Qiniiu Documentation that the API supports [upload](http://de
 
 ###  Problem Statement
 
+Like what Derek suggested, we can add an event logger to the program and make the messgage look like the official tool `qrsynch`. The `qrsynch` tool provided by Qiniu outputs thorough message to the console. The level of detailedness can be set in the `conf.json` file. There are two level of detailedness, 0 where every message is output, and 1 where debug message are ignored.
+
+Here is a sample output of the evnet logging by `qrsynch` (debug level=0)
+
+>nykh@linuxbook:~/workspace/qiniu-official-tools$ ./qrsync conf.json 
+2015/07/31 15:21:31.769716 [INFO] qbox.us/qrsync/v3/qrsync/qrsync.go:50: Syncing /home/nykh/workspace/qiniu-official-tools/test_folder => llcetest
+2015/07/31 15:21:31.769876 [INFO] qbox.us/qrsync/v3/qrsync/qrsync.go:119: Processing /home/nykh/.qrsync/MzCpZd8w6KARRwJ3HGPQRi2a.db
+2015/07/31 15:21:31.774502 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:104: Syncing a.txt
+2015/07/31 15:21:31.774550 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting a.txt
+2015/07/31 15:21:31.875013 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:180: Open a.txt: fsize: 0 mime: text/plain
+2015/07/31 15:21:36.877441 [WARN] qbox.us/qrsync/v3/sync/sync.go:142: Put /home/nykh/workspace/qiniu-official-tools/test_folder/a.txt => llcetest:a.txt failed:
+ \==> qbox.us/qrsync/v3/sync/sync.go:184: Post http://upload.qiniu.com: dial tcp: i/o timeout ~ putFile: dest.Put faileda.txt
+ \==> Post http://upload.qiniu.com: dial tcp: i/o timeout
+2015/07/31 15:21:36.877502 [ERROR] qbox.us/qrsync/v3/sync/mq.go:77: Push value to closed mq
+2015/07/31 15:21:36.877531 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:104: Syncing b.out
+2015/07/31 15:21:36.877591 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting b.out
+2015/07/31 15:21:36.977871 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:180: Open b.out: fsize: 0 mime: 
+2015/07/31 15:21:38.279727 [INFO] qbox.us/qrsync/v3/sync/sync.go:146: Put /home/nykh/workspace/qiniu-official-tools/test_folder/b.out => llcetest:b.out
+2015/07/31 15:21:38.280245 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:104: Syncing c.ini
+2015/07/31 15:21:38.280299 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting c.ini
+2015/07/31 15:21:38.380548 [DEBUG] qbox.us/qrsync/v3/sync/sync.go:180: Open c.ini: fsize: 0 mime: 
+2015/07/31 15:21:38.443181 [INFO] qbox.us/qrsync/v3/sync/sync.go:146: Put /home/nykh/workspace/qiniu-official-tools/test_folder/c.ini => llcetest:c.ini
+
+> Sync done!
+
+As we can see, each line of the log comes in the format of `timestamp` + `tag` + `message`. The tag is used to filter the message. Another example is at debug level 1.
+
+>nykh@linuxbook:~/workspace/qiniu-official-tools$ ./qrsync -check-exist=false conf.json
+2015/07/31 16:35:37.410787 [INFO] qbox.us/qrsync/v3/qrsync/qrsync.go:50: Syncing /home/nykh/workspace/qiniu-official-tools/test_folder => llcetest
+2015/07/31 16:35:37.410887 [INFO] qbox.us/qrsync/v3/qrsync/qrsync.go:119: Processing /home/nykh/.qrsync/MzCpZd8w6KARRwJ3HGPQRi2a.db
+2015/07/31 16:35:37.417242 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting a.txt
+2015/07/31 16:35:37.650892 [INFO] qbox.us/qrsync/v3/sync/sync.go:146: Put /home/nykh/workspace/qiniu-official-tools/test_folder/a.txt => llcetest:a.txt
+2015/07/31 16:35:37.651074 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting b.out
+2015/07/31 16:35:37.816388 [INFO] qbox.us/qrsync/v3/sync/sync.go:146: Put /home/nykh/workspace/qiniu-official-tools/test_folder/b.out => llcetest:b.out
+2015/07/31 16:35:37.816557 [INFO] qbox.us/qrsync/v3/sync/sync.go:172: Putting c.ini
+2015/07/31 16:35:37.980363 [INFO] qbox.us/qrsync/v3/sync/sync.go:146: Put /home/nykh/workspace/qiniu-official-tools/test_folder/c.ini => llcetest:c.ini
+
+>Sync done!
+
+As we can see, only message with [INFO] tag is left in this case, though error is not present in this run, so we can't be sure about the tag Error and Warn.
+
+
+### Implementation Plan
+
+####  Event Logger
+
+To provide an event logger that can be controlled by the `config.ini`, I should restructure the program and separate the event logging part into its own class. There must be a thorough testing to determine what kind of error is reported when transmission fails.
 
 

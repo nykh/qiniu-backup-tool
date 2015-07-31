@@ -42,9 +42,7 @@ class QiniuBackup:
         self.batch_download(download_file_list)
         self.batch_upload(upload_file_list)
 
-        # print a message if no file is transfered
-        if not download_file_list and not upload_file_list:
-            self.logger('INFO', "Cloud and local folder are already synched!")
+        self.logger('INFO', "Bucket and local folder are synched!")
 
     def validate_local_folder(self):
         if not self.basepath.exists():
@@ -68,6 +66,7 @@ class QiniuBackup:
         """
         traverse the buckt through the Qiniu API and return a list of keys
         and timestamp
+        :except no connection is established
         :param bucketname:
         :return: a dict mapping key to upload time
         """
@@ -80,6 +79,10 @@ class QiniuBackup:
         while not done:
             ret, done, _ = bucket.list(self.bucketname, marker=marker,
                                        limit=self.BATCH_LIMIT)
+            if not ret:
+                self.logger('ERROR',
+                            'could not establish connection with cloud. Exit.')
+                sys.exit(1)
             marker = ret.get('marker')
             for resource in ret['items']:
                 key_list[resource['key']] = resource['putTime']
@@ -169,7 +172,11 @@ class QiniuBackup:
 
         for key in keylist:
             res = req.get(self.bucketurl + key)
-            assert res.status_code == 200
+            if res.status_code != 200:
+                self.logger('WARN',
+                            'downloading ' + key + ' failed.')
+                continue
+
             process_key = output_policy(key)
             if '/' in process_key:
                 # recursively validate each level
