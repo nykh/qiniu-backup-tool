@@ -219,6 +219,8 @@ class QiniuBackup:
 
 class EventLogger:
     def __init__(self, verbose=False, log_to_file=False):
+        self.logfile = None
+
         if log_to_file:
             self.logfile = open('qbackup-{}.log'.format(
                 datetime.datetime.now().strftime('%y-%m-%d_%H-%M-%S')
@@ -239,6 +241,8 @@ class EventLogger:
                 print(EventLogger.format(tag, msg))
 
             self.log = _log
+        else:
+            self.log = lambda tag, msg: None
 
     def __call__(self, tag, msg):
         self.log(tag, msg)
