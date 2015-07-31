@@ -91,8 +91,8 @@ def compare_local_and_remote(remote_key_and_ts, local_filename_and_mtime):
 
     both = local_files.intersection(remote_files)
 
-    download.extend(remote_files.difference(local_files))
-    upload.extend(local_files.difference(remote_files))
+    download.extend(remote_files.difference(both))
+    upload.extend(local_files.difference(both))
     for key in both:
         cmp = compare_timestamp(remote_key_and_ts[key],
                                 local_filename_and_mtime[key])
@@ -112,6 +112,7 @@ def batch_download(bucketurl, keylist, basepath, output_policy=lambda x: x,
     :param output_policy: callback function that determines the output
                           filename based on the key
     :param verbose: if True print each file downloaded
+    :return None
     '''
     if not keylist:
         return
@@ -143,7 +144,7 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
     :param filelist: list of file names (including path) to be uploaded
     :param basepath:
     :param verbose: if True print each file uploaded
-    :return:
+    :return:None
     '''
     if not filelist:
         return
@@ -174,20 +175,20 @@ def batch_upload(bucketname, filelist, basepath, verbose=False):
 
 if __name__ == '__main__':
     import configparser
+    import datetime
 
     CONFIG = configparser.ConfigParser()
     CONFIG.read('config.ini')
     OPTIONS = CONFIG['DEFAULT']
 
-    # hardcoded now, customizable later
     BUCKET_NAME = OPTIONS['bucketname']
     BUCKET_URL = OPTIONS['bucketurl']
     BASE_PATH = pathlib.Path(OPTIONS['basepath'])
     VERBOSE = OPTIONS.getboolean('verbose')
+    LOG = OPTIONS.getboolean('log')
 
     if not BASE_PATH.exists():
         BASE_PATH.mkdir()
-    assert BASE_PATH.exists()
 
     REMOTE_KEY_AND_TIMESTAMP = list_remote_bucket(BUCKET_NAME)
     LOCAL_FILE_AND_MTIME = list_local_files(BASE_PATH)
@@ -196,5 +197,6 @@ if __name__ == '__main__':
     batch_download(BUCKET_URL, DOWNLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
     batch_upload(BUCKET_NAME, UPLOAD_FILE_LIST, BASE_PATH, verbose=VERBOSE)
 
+    # print a message if no file is transfered
     if not DOWNLOAD_FILE_LIST and not UPLOAD_FILE_LIST:
         print("Cloud and local folder are already synched!")
