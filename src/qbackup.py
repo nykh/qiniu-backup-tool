@@ -2,6 +2,8 @@ __author__ = 'nykh'
 
 import pathlib
 import os
+import sys
+import datetime
 import time
 import qiniu
 from qiniu import BucketManager
@@ -19,19 +21,36 @@ class QiniuBackup:
         self.verbose = options.getboolean('verbose', fallback=False)
         self.log = options.getboolean('log', fallback=False)
 
+        if self.log:
+            self.logfile = open('qbackup-'
+                                + datetime.datetime.now().strftime('%y-%m-%d_%H-%M-%S')
+                                + '.log', 'w')
+            if self.verbose:
+                def _log(s):
+                    self.logfile.write(s + '\n')
+                    print(s)
+                self._log = _log
+            else:
+                def _log(s):
+                    self.logfile.write(s + '\n')
+                self._log = _log
+        elif self.verbose:
+            self._log = print
+
         self.auth = auth
+
+    def __del__(self):
+        if self.logfile:
+            self.logfile.close()
 
     def synch(self):
         '''
         the main synchroization logic happens here
         :return:None
         '''
-        if not self.basepath.exists():
-            self.basepath.mkdir()
-        elif not self.basepath.is_dir():
-            raise FileExistsError(str(self.basepath) + ' is not a directory')
-        elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
-            raise PermissionError(str(self.basepath) + ' is not writable')
+        self._log('Qiniu bucket backup procedure...')
+
+        self.validate_local_folder()
 
         download_file_list, upload_file_list = \
             QiniuBackup.compare_local_and_remote(self.list_remote_bucket(),
@@ -41,7 +60,25 @@ class QiniuBackup:
 
         # print a message if no file is transfered
         if not download_file_list and not upload_file_list:
-            print("Cloud and local folder are already synched!")
+            self._log("Cloud and local folder are already synched!")
+
+    def validate_local_folder(self):
+        if not self.basepath.exists():
+            self._log('could not find ' + str(self.basepath)
+                      + ', create folder')
+            try:
+                self.basepath.mkdir()
+            except PermissionError:
+                self._log('unable to create folder. Exit now.')
+                sys.exit(1)
+            self._log('folder created!')
+        elif not self.basepath.is_dir():
+            self._log(str(self.basepath) + ' is not a directory')
+            sys.exit(1)
+        elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
+            self._log(str(self.basepath) + ' is not writable')
+            sys.exit(1)
+
 
     def list_remote_bucket(self):
         """
@@ -161,7 +198,7 @@ class QiniuBackup:
             with open(str(self.basepath / process_key), 'wb') as local_copy:
                 local_copy.write(res.content)
             if self.verbose:
-                print('downloaded: ' + key)
+                self._log('downloaded: ' + key)
 
     def batch_upload(self, filelist):
         '''
@@ -193,14 +230,17 @@ class QiniuBackup:
             # trigger the download criteria (remote ts > local ts)
 
             if self.verbose:
-                print('uploaded: ' + file)
+                self._log('uploaded: ' + file)
 
 
 if __name__ == '__main__':
     import configparser
 
     CONFIG = configparser.ConfigParser()
-    CONFIG.read('config.ini')
+    if not CONFIG.read('config.ini'):
+        print('could not read config file!')
+        sys.exit(1)
+
     options = CONFIG['DEFAULT']
 
     auth = qauth.get_authentication()
