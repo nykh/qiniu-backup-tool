@@ -10,7 +10,7 @@ Because time is money (the last download took 4 days to run), and network traffi
 
 Because Windows pathname uses "\" instead of "/" as in POSIX path. This creates major confusion as every key that has "/" in it is treated differently in the POSIX system and Windows.
 
-#### Description of Windows bug
+#### Description of Windows backslash bug
 
 The behavior of the program under Windows machine with a local file `a\b.txt` (remote key `a/b.txt`) is as follows: the program cannot understand that the remote key is the same as the local file path, and a download and upload will occur. This creates another remote copy with key `a\b.txt`. Next time, both copies are downloaded, but written to the same file. The program should be modified to work under this situation without the bug.
 
@@ -42,4 +42,8 @@ As we can see the most problematic case is when the key begins with a '/' or '\'
 
 ## Solution
 
+### The Windows backslash bug
 
+The program must translate between the (Windows) pathname and key. `\` character as allowed in the UNIX system is not allowed in the program anymore. From now on, '\' character is strictly interpreted as the Windows synonym for '/' in UNIX.
+
+Thus, every character '/' in the key must, when fed to Windows, be replaced with '\', and vice versa when fed to the `compare_local_and_remote` function.
