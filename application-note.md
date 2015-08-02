@@ -27,13 +27,16 @@ Some rules I have discovered about special character on Qiniu key generation
 | key | url |  POSIX  | Windows
 |--------|--------|
 | 中文 | 中文 | 中文 | 中文 |
-| :             | :   | :       | :   |
+| :             | %3A | :       | **bug**   |
+| bar           | bar | bar     | **bug**   |
 | .             | .   | .       | .   |
 | \             | %5C | \       | dir |
 | /             | /   | dir     | dir |
 | begins with \ | \  | \        |  **silent bug**  |
 | begins with / | @/  | **bug** |  **silent bug**  |
 | @             | @@  | @       |  @  |
+
+In Windows, filenames cannot contain special characters `\/:*?"<>|`. Some of these characters work in UNIX system but it is wise to say they should be considered illegal in the backup system. Especially with `\/`, they will be interpreted as directories in the file hierarchy.
 
 As we can see the most problematic case is when the key begins with a '/' or '\' character. Under Windows, when a key begins with either of these characters, the file is still downloaded, but not to the folder, but to the root of the Device. (ie. `C:/` etc). Under POSIX system, a key that begins with '/' will send the file to the root directory `/`, and of course it will fail because of permission error. These two corner cases need to be dealt with. Perhaps, the solution by Qiniu itself can give us inspiration. Because a url can never contain double slash "//", it automatically inserts a **@** character in front of the first '/'. Perhaps in my program, I can also creaate a `@` directory and put everything that begins with '/' inside there, as long as the key and filepath maintain a bijection.
 

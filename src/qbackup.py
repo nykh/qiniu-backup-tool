@@ -177,16 +177,12 @@ class QiniuBackup:
                             'downloading ' + key + ' failed.')
                 continue
 
-            process_key = output_policy(key)
-            if '/' in process_key:
-                # recursively validate each level
-                levels = os.path.dirname(process_key).split('/')
-                dirpath = self.basepath
-                for level in levels:
-                    dirpath /= level
-                    if not dirpath.exists():
-                        os.mkdir(str(dirpath))
-            with open(str(self.basepath / process_key), 'wb') as local_copy:
+            subpath = self.basepath / output_policy(key)
+            for parent in list(subpath.parents)[:-1]:  # ignore ','
+                dirpath = self.basepath / parent
+                if not dirpath.exists():
+                    dirpath.mkdir()
+            with open(str(self.basepath / subpath), 'wb') as local_copy:
                 local_copy.write(res.content)
             self.logger('INFO', 'downloaded: ' + key)
 
