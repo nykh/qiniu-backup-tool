@@ -98,11 +98,10 @@ class QiniuBackup:
         local_filename_and_mtime = {}
         for path, _, files in os.walk(str(self.basepath)):
             for file in files:
-                path = path.replace('\\', '/')
-                fullpath = os.path.join(path, file)
-                keypath = fullpath[len(str(self.basepath))+1:]
+                fullpath = pathlib.Path(path, file)
+                keypath = fullpath.relative_to(self.basepath).as_posix()
                 # strip the basepath from fullpath, such that filename == key
-                mtime = os.stat(fullpath).st_mtime
+                mtime = fullpath.stat().st_mtime
                 local_filename_and_mtime[keypath] = mtime
         return local_filename_and_mtime
 
