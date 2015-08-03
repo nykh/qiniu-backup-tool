@@ -226,7 +226,7 @@ class QiniuFlatBackup(QiniuBackup):
 
     def list_local_files(self):
         local_files = os.listdir(str(self.basepath))
-        return {self.decoding(file): os.stat(file).st_mtime
+        return {self.decoding(file): (self.basepath / file).stat().st_mtime
                                for file in local_files}
 
     def batch_download(self, keylist, output_policy=lambda x: x):
@@ -260,6 +260,7 @@ class QiniuFlatBackup(QiniuBackup):
         '''
         same as batch_download but for uploadging, requires authentication
         :param filelist: list of file names (including path) to be uploaded
+               filelist is in the *decoded* state
         :return:None
         '''
         if not filelist:
@@ -271,8 +272,9 @@ class QiniuFlatBackup(QiniuBackup):
         params = {'x:a': 'a'}
 
         for file in filelist:
+            key = file
+            file = self.encoding(file)
             file_path = str(self.basepath / file)
-            key = self.decoding(file)
             mime_type = mimetypes.guess_type(file_path)[0]
             # guess_type() return a tuple (mime_type, encoding),
             # only mime_type is needed
