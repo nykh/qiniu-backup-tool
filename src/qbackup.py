@@ -219,8 +219,8 @@ class QiniuFlatBackup(QiniuBackup):
     '''
     This version of Qiniu Backup assumes the local folder is empty
     '''
-    def __init__(self, encoding_func, decoding_func):
-        super(QiniuFlatBackup, self).__init__()
+    def __init__(self, options, auth, encoding_func, decoding_func):
+        super(QiniuFlatBackup, self).__init__(options, auth)
         self.encoding = encoding_func
         self.decoding = decoding_func
 
@@ -230,10 +230,63 @@ class QiniuFlatBackup(QiniuBackup):
                                for file in local_files}
 
     def batch_download(self, keylist, output_policy=lambda x: x):
-        pass
+        '''
+        side-effect: batch download list of resources from qiniu bucket
+        :except: raises exception if any of the request return an error
+        :param keylist: list of keys for downloading
+        :param output_policy: callback function that determines the output
+                              filename based on the key
+        :return None
+        '''
+        if not keylist:
+            return
+
+        import requests as req
+
+        for key in keylist:
+            res = req.get(self.bucketurl + key)
+            if res.status_code != 200:
+                self.logger('WARN',
+                            'downloading ' + key + ' failed.')
+                continue
+
+            file_path = str(self.basepath / self.encoding(key))
+            with open(file_path, 'wb') as local_copy:
+                local_copy.write(res.content)
+            self.logger('INFO', 'downloaded: ' + key + ' => ' + file_path)
 
     def batch_upload(self, filelist):
-        pass
+        '''
+        same as batch_download but for uploadging, requires authentication
+        :param filelist: list of file names (including path) to be uploaded
+        :return:None
+        '''
+        if not filelist:
+            return
+
+        import mimetypes
+
+        token = self.auth.upload_token(self.bucketname)
+        params = {'x:a': 'a'}
+
+        for file in filelist:
+            file_path = str(self.basepath / file)
+            key = self.decoding(file)
+            mime_type = mimetypes.guess_type(file_path)[0]
+            # guess_type() return a tuple (mime_type, encoding),
+            # only mime_type is needed
+            ret, _ = qiniu.put_file(token, key=key,
+                                    file_path=file_path, params=params,
+                                    mime_type=mime_type, check_crc=True)
+            assert ret['key'] == key
+
+            future = time.time() + 10  # sec since Epoch
+            os.utime(file_path, times=(future, future))
+            # reset the atime and mtime in the future so that the file doesn't
+            # trigger the download criteria (remote ts > local ts)
+
+            self.logger('INFO', 'uploaded: ' + file + ' => ' + key)
+
 
 
 
@@ -288,5 +341,7 @@ if __name__ == '__main__':
     options = CONFIG['DEFAULT']
 
     auth = qauth.get_authentication()
-    qbackup = QiniuFlatBackup(options, auth)
+    qbackup = QiniuFlatBackup(options, auth,
+                              encoding_func=lambda s: s.replace('/', '%2F'),
+                              decoding_func=lambda s: s.replace('%2F', '/'))
     qbackup.synch()
