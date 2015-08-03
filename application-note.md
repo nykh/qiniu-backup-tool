@@ -51,3 +51,11 @@ Thus, every character '/' in the key must, when fed to Windows, be replaced with
 ### beginning slashes
 
 Insert `@` character in front of the beginning slash(es) in the key. Also insert `@` between any repeating slashes to maintain one-to-one relationship. Thus, key `///aaa///bbb///ccc.txt` will be translate to `@/@/@/aaa/@/@/bbb/@/@/ccc.txt`. The pathname can be easily translated back to the key by dropping all the `@`.
+
+## Plan B: Flat Version
+
+At this point, I am starting to feel the benefit of using a flat structure for the program
+
+- First and most importantly, it is the data structure in Derek's use case
+- You can ignore any special character corner cases
+- listing the file do not require `os.walk` anymore, just a simple `os.listdir`

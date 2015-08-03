@@ -250,10 +250,11 @@ class QiniuFlatBackup(QiniuBackup):
                             'downloading ' + key + ' failed.')
                 continue
 
-            file_path = str(self.basepath / self.encoding(key))
+            file = self.encoding(key)
+            file_path = str(self.basepath / file)
             with open(file_path, 'wb') as local_copy:
                 local_copy.write(res.content)
-            self.logger('INFO', 'downloaded: ' + key + ' => ' + file_path)
+            self.logger('INFO', 'downloaded: ' + key + ' => ' + file)
 
     def batch_upload(self, filelist):
         '''
