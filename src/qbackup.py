@@ -291,6 +291,38 @@ class QiniuFlatBackup(QiniuBackup):
             self.logger('INFO', 'uploaded: ' + file + ' => ' + key)
 
 
+class MultipleBackupDriver():
+    class _SectionProxyProxy(dict):
+        def getboolean(self, key, fallback):
+            return self.get(key, fallback)
+
+    def __init__(self, options, auth):
+        self.auth = auth
+
+        bucketsnames = options['bucketname'].split(';')
+        bucketurls = Default['bucketurl'].split(';')
+        basepaths = Default['basepath'].split(';')
+        assert len(bucketsnames) == len(bucketurls) == len(basepaths)
+        verbose = options.getboolean('verbose', fallback=False)
+        log = options.getboolean('log', fallback=False)
+
+        self.backups = [self._SectionProxyProxy(
+                        {'bucketname': bn,
+                         'bucketurl': bu,
+                         'basepath': bp,
+                         'verbose': verbose,
+                         'log': log})
+                        for bn, bu, bp in
+                        zip(bucketsnames, bucketurls, basepaths)]
+
+    def synch_all(self):
+        for backup in self.backups:
+            qbackup = QiniuFlatBackup(backup, auth,
+                                      encoding_func=lambda s: s.replace('/', '%2F'),
+                                      decoding_func=lambda s: s.replace('%2F', '/'))
+            qbackup.synch()
+
+
 
 
 class EventLogger:
@@ -341,10 +373,8 @@ if __name__ == '__main__':
         print(EventLogger.format('ERR', 'could not read config file!'))
         sys.exit(1)
 
-    options = CONFIG['DEFAULT']
+    Default = CONFIG['DEFAULT']
 
     auth = qauth.get_authentication()
-    qbackup = QiniuFlatBackup(options, auth,
-                              encoding_func=lambda s: s.replace('/', '%2F'),
-                              decoding_func=lambda s: s.replace('%2F', '/'))
-    qbackup.synch()
+    multibackup = MultipleBackupDriver(Default, auth)
+    multibackup.synch_all()
