@@ -295,8 +295,9 @@ class MultipleBackupDriver():
         def getboolean(self, key, fallback):
             return self.get(key, fallback)
 
-    def __init__(self, options, auth):
+    def __init__(self, options, auth, QBackupClass):
         self.auth = auth
+        self.QBackupClass = QBackupClass
 
         bucketsnames = options['bucketname'].split(';')
         bucketurls = Default['bucketurl'].split(';')
@@ -314,14 +315,24 @@ class MultipleBackupDriver():
                         for bn, bu, bp in
                         zip(bucketsnames, bucketurls, basepaths)]
 
-    def synch_all(self):
-        for backup in self.backups:
-            qbackup = QiniuFlatBackup(backup, auth,
-                                      encoding_func=
-                                      lambda s: s.replace('/', '%2F'),
-                                      decoding_func=
-                                      lambda s: s.replace('%2F', '/'))
-            qbackup.synch()
+        if QBackupClass is QiniuBackup:
+            def _synch_all():
+                for backup in self.backups:
+                    qbackup = self.QBackupClass(backup, auth)
+                    qbackup.synch()
+            self.synch_all = _synch_all
+        elif QBackupClass is QiniuFlatBackup:
+            def _synch_all():
+                for backup in self.backups:
+                    qbackup = self.QBackupClass(backup, auth,
+                                              encoding_func=
+                                              lambda s: s.replace('/', '%2F'),
+                                              decoding_func=
+                                              lambda s: s.replace('%2F', '/'))
+                    qbackup.synch()
+            self.synch_all = _synch_all
+        else:
+            raise TypeError
 
 
 class EventLogger:
@@ -375,5 +386,5 @@ if __name__ == '__main__':
     Default = CONFIG['DEFAULT']
 
     auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, auth)
+    multibackup = MultipleBackupDriver(Default, auth, QiniuFlatBackup)
     multibackup.synch_all()
