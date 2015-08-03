@@ -67,7 +67,6 @@ class QiniuBackup:
         traverse the buckt through the Qiniu API and return a list of keys
         and timestamp
         :except no connection is established
-        :param bucketname:
         :return: a dict mapping key to upload time
         """
         key_list = {}
@@ -91,8 +90,6 @@ class QiniuBackup:
 
     def list_local_files(self):
         '''
-
-        :param basepath:
         :return:a dict mapping filename to last modified time (ST_MTIME)
         '''
         local_filename_and_mtime = {}
@@ -218,6 +215,28 @@ class QiniuBackup:
             self.logger('INFO', 'uploaded: ' + file)
 
 
+class QiniuFlatBackup(QiniuBackup):
+    '''
+    This version of Qiniu Backup assumes the local folder is empty
+    '''
+    def __init__(self, encoding_func, decoding_func):
+        super(QiniuFlatBackup, self).__init__()
+        self.encoding = encoding_func
+        self.decoding = decoding_func
+
+    def list_local_files(self):
+        local_files = os.listdir(str(self.basepath))
+        return {self.decoding(file): os.stat(file).st_mtime
+                               for file in local_files}
+
+    def batch_download(self, keylist, output_policy=lambda x: x):
+        pass
+
+    def batch_upload(self, filelist):
+        pass
+
+
+
 class EventLogger:
     def __init__(self, verbose=False, log_to_file=False):
         self.logfile = None
@@ -269,5 +288,5 @@ if __name__ == '__main__':
     options = CONFIG['DEFAULT']
 
     auth = qauth.get_authentication()
-    qbackup = QiniuBackup(options, auth)
+    qbackup = QiniuFlatBackup(options, auth)
     qbackup.synch()

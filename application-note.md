@@ -47,3 +47,7 @@ As we can see the most problematic case is when the key begins with a '/' or '\'
 The program must translate between the (Windows) pathname and key. `\` character as allowed in the UNIX system is not allowed in the program anymore. From now on, '\' character is strictly interpreted as the Windows synonym for '/' in UNIX.
 
 Thus, every character '/' in the key must, when fed to Windows, be replaced with '\', and vice versa when fed to the `compare_local_and_remote` function.
+
+### beginning slashes
+
+Insert `@` character in front of the beginning slash(es) in the key. Also insert `@` between any repeating slashes to maintain one-to-one relationship. Thus, key `///aaa///bbb///ccc.txt` will be translate to `@/@/@/aaa/@/@/bbb/@/@/ccc.txt`. The pathname can be easily translated back to the key by dropping all the `@`.
