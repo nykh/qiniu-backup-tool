@@ -32,7 +32,7 @@ class QiniuBackup:
         :return:None
         '''
         self.logger('INFO', 'Begin synching ' + str(self.basepath)
-                  + ' <=> Bucket ' + self.bucketname)
+                    + ' <=> Bucket ' + self.bucketname)
 
         self.validate_local_folder()
 
@@ -47,7 +47,7 @@ class QiniuBackup:
     def validate_local_folder(self):
         if not self.basepath.exists():
             self.logger('WARNING', 'could not find ' + str(self.basepath)
-                      + ', create folder')
+                        + ', create folder')
             try:
                 self.basepath.mkdir()
             except PermissionError:
@@ -60,7 +60,6 @@ class QiniuBackup:
         elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
             self.logger('ERR', str(self.basepath) + ' is not writable')
             sys.exit(1)
-
 
     def list_remote_bucket(self):
         """
@@ -227,7 +226,7 @@ class QiniuFlatBackup(QiniuBackup):
     def list_local_files(self):
         local_files = os.listdir(str(self.basepath))
         return {self.decoding(file): (self.basepath / file).stat().st_mtime
-                               for file in local_files}
+                for file in local_files}
 
     def batch_download(self, keylist, output_policy=lambda x: x):
         '''
@@ -318,11 +317,11 @@ class MultipleBackupDriver():
     def synch_all(self):
         for backup in self.backups:
             qbackup = QiniuFlatBackup(backup, auth,
-                                      encoding_func=lambda s: s.replace('/', '%2F'),
-                                      decoding_func=lambda s: s.replace('%2F', '/'))
+                                      encoding_func=
+                                      lambda s: s.replace('/', '%2F'),
+                                      decoding_func=
+                                      lambda s: s.replace('%2F', '/'))
             qbackup.synch()
-
-
 
 
 class EventLogger:
