@@ -20,7 +20,7 @@ class QiniuBackup:
     def __init__(self, options, auth):
         self.bucketname = options['bucketname']
         self.bucketurl = options['bucketurl']
-        self.basepath = pathlib.Path(options['basepath'])
+        self.localdir = pathlib.Path(options['local_dir'])
 
         self.verbose = options.getboolean('verbose', fallback=False)
         self.log_to_file = options.getboolean('log', fallback=False)
@@ -40,7 +40,7 @@ class QiniuBackup:
         the main synchroization logic happens here
         :return:None
         """
-        self.logger('INFO', 'Begin synching ' + str(self.basepath)
+        self.logger('INFO', 'Begin synching ' + str(self.localdir)
                     + ' <=> Bucket ' + self.bucketname)
 
         self.validate_local_folder()
@@ -56,20 +56,20 @@ class QiniuBackup:
         self.logger('INFO', "Bucket and local folder are synched!")
 
     def validate_local_folder(self):
-        if not self.basepath.exists():
-            self.logger('WARNING', 'could not find ' + str(self.basepath)
+        if not self.localdir.exists():
+            self.logger('WARNING', 'could not find ' + str(self.localdir)
                         + ', create folder')
             try:
-                self.basepath.mkdir()
+                self.localdir.mkdir()
             except PermissionError:
                 self.logger('ERR', 'unable to create folder. Exit now.')
                 sys.exit(1)
             self.logger('INFO', 'folder created!')
-        elif not self.basepath.is_dir():
-            self.logger('ERR', str(self.basepath) + ' is not a directory')
+        elif not self.localdir.is_dir():
+            self.logger('ERR', str(self.localdir) + ' is not a directory')
             sys.exit(1)
-        elif not os.access(str(self.basepath), mode=os.W_OK | os.X_OK):
-            self.logger('ERR', str(self.basepath) + ' is not writable')
+        elif not os.access(str(self.localdir), mode=os.W_OK | os.X_OK):
+            self.logger('ERR', str(self.localdir) + ' is not writable')
             sys.exit(1)
 
     def _list_remote_bucket(self):
@@ -106,10 +106,10 @@ class QiniuBackup:
         :return:a dict mapping filename to last modified time (ST_MTIME)
         """
         local_filename_and_mtime = {}
-        for path, _, files in os.walk(str(self.basepath)):
+        for path, _, files in os.walk(str(self.localdir)):
             for file in files:
                 fullpath = pathlib.Path(path, file)
-                keypath = fullpath.relative_to(self.basepath).as_posix()
+                keypath = fullpath.relative_to(self.localdir).as_posix()
                 # strip the basepath from fullpath, such that filename == key
                 mtime = fullpath.stat().st_mtime
                 local_filename_and_mtime[keypath] = mtime
@@ -181,12 +181,12 @@ class QiniuBackup:
         for key in keylist:
             self.logger('INFO', 'downloading: ' + key)
             file = output_policy(key)
-            subpath = self.basepath / file
+            subpath = self.localdir / file
             for parent in list(subpath.parents)[:-1]:  # ignore ','
-                dirpath = self.basepath / parent
+                dirpath = self.localdir / parent
                 if not dirpath.exists():
                     dirpath.mkdir()
-            with open(str(self.basepath / subpath), 'wb') as local_copy:
+            with open(str(self.localdir / subpath), 'wb') as local_copy:
                 self._download_file(key, local_copy, big_file_list)
 
     def _batch_upload(self, filelist):
@@ -239,7 +239,7 @@ class QiniuBackup:
             file.write(res.content)
 
     def _upload_file(self, token, key, file, params):
-        file_path = str(self.basepath / file)
+        file_path = str(self.localdir / file)
         mime_type = mimetypes.guess_type(file_path)[0]
         # guess_type() return a tuple (mime_type, encoding),
         # only mime_type is needed
@@ -274,8 +274,8 @@ class QiniuFlatBackup(QiniuBackup):
         self.decoding = decoding_func
 
     def _list_local_files(self):
-        local_files = os.listdir(str(self.basepath))
-        return {self.decoding(file): (self.basepath / file).stat().st_mtime
+        local_files = os.listdir(str(self.localdir))
+        return {self.decoding(file): (self.localdir / file).stat().st_mtime
                 for file in local_files}
 
     def _batch_download(self, keylist, big_file_list=None,
@@ -296,7 +296,7 @@ class QiniuFlatBackup(QiniuBackup):
             self.logger('INFO', 'downloading: ' + key + ' => ' + file)
 
             file = self.encoding(key)
-            file_path = str(self.basepath / file)
+            file_path = str(self.localdir / file)
             with open(file_path, 'wb') as local_copy:
                 self._download_file(key, local_copy, big_file_list)
 
@@ -329,19 +329,19 @@ class MultipleBackupDriver:
         self.auth = auth
         self.QBackupClass = backup_class
 
-        bucketsnames = options['bucketname'].split(';')
-        bucketurls = Default['bucketurl'].split(';')
-        basepaths = Default['basepath'].split(';')
-        assert len(bucketsnames) == len(bucketurls) == len(basepaths)
+        bucketsnames = [s.strip() for s in options['bucketname'].split(';')]
+        bucketurls = [s.strip() for s in Default['bucketurl'].split(';')]
+        localdir = [s.strip() for s in Default['local_dir'].split(';')]
+        assert len(bucketsnames) == len(bucketurls) == len(localdir)
         verbose = options.getboolean('verbose', fallback=False)
         log = options.getboolean('log', fallback=False)
 
         self.backups = []
-        for bn, bu, bp in zip(bucketsnames, bucketurls, basepaths):
+        for bn, bu, ld in zip(bucketsnames, bucketurls, localdir):
             self.backups.append(self._SectionProxyProxy(
                 {'bucketname': bn,
                  'bucketurl': bu,
-                 'basepath': bp,
+                 'local_dir': ld,
                  'verbose': verbose,
                  'log': log}))
 
