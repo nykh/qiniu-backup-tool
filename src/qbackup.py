@@ -214,7 +214,7 @@ class QiniuBackup:
                             'downloading ' + key + ' failed.')
                 return
 
-            progress_bar = ProgressHandler()
+            progress_bar = ProgressHandler(self.verbose)
             progress = 0
             total = big_file_list[key]
             for chunk in res.iter_content(chunk_size=self.CHUNK_SIZE):
@@ -246,7 +246,7 @@ class QiniuBackup:
 
         self.logger('INFO', 'uploading: ' + file + ' => ' + key)
 
-        progress = ProgressHandler()
+        progress = ProgressHandler(self.verbose)
         ret, _ = qiniu.put_file(token, key=key,
                                 file_path=file_path,
                                 params=params,
@@ -394,10 +394,14 @@ class EventLogger:
 
 
 class ProgressHandler:
-    def __init__(self):
+    def __init__(self, display_progress_bar=False):
         self.bar = None
+        self.display = display_progress_bar
 
     def __call__(self, progress, total):
+        if not self.display:
+            return
+
         if not self.bar:
             self.bar = progressbar.ProgressBar(widgets=[
                 progressbar.Percentage(), progressbar.Bar()
