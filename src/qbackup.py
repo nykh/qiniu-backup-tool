@@ -7,7 +7,7 @@ import datetime
 import time
 import qiniu
 from qiniu import BucketManager
-from progressive.bar import Bar as ProgressBar
+import progressbar
 import qauth
 
 
@@ -211,7 +211,6 @@ class QiniuBackup:
                                     check_crc=True,
                                     progress_handler=progress)
             assert ret['key'] == file
-            del progress
 
             future = time.time() + 10  # sec since Epoch
             os.utime(file_path, times=(future, future))
@@ -226,15 +225,12 @@ class QiniuBackup:
 
         def __call__(self, progress, total):
             if not self.bar:
-                self.bar = ProgressBar(max_value=total)
-                self.bar.cursor.clear_lines(2)  # Make some room
-                self.bar.cursor.save()  # Mark starting line
-            else:
-                self.bar.cursor.restore()  # Return cursor to start
-            self.bar.draw(value=progress)
-
-        def __del__(self):
-            del self.bar
+                self.bar = progressbar.ProgressBar(widgets=[progressbar.Percentage(),
+                                                            progressbar.Bar()],
+                                                   maxval=total).start()
+            self.bar.update(progress)
+            if progress == total:
+                self.bar.finish()
 
 class QiniuFlatBackup(QiniuBackup):
     '''
@@ -310,7 +306,6 @@ class QiniuFlatBackup(QiniuBackup):
                                     check_crc=True,
                                     progress_handler=progress)
             assert ret['key'] == file
-            del progress
 
             future = time.time() + 10  # sec since Epoch
             os.utime(file_path, times=(future, future))
