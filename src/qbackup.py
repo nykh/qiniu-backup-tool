@@ -26,6 +26,8 @@ class QiniuBackup:
 
         self.download_size_threshold = options.getint('size_threshold',
                                                       fallback=1024) * 1024
+        if self.download_size_threshold < self.CHUNK_SIZE * 2:
+            self.download_size_threshold = self.CHUNK_SIZE * 2
 
         self.logger = EventLogger(verbose=self.verbose,
                                   log_to_file=self.log_to_file)
