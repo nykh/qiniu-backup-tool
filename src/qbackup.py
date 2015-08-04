@@ -165,7 +165,8 @@ class QiniuBackup:
         else:
             return 0
 
-    def _batch_download(self, keylist, big_file_list=None, output_policy=lambda x: x):
+    def _batch_download(self, keylist, big_file_list=None,
+                        output_policy=lambda x: x):
         """
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
@@ -277,7 +278,8 @@ class QiniuFlatBackup(QiniuBackup):
         return {self.decoding(file): (self.basepath / file).stat().st_mtime
                 for file in local_files}
 
-    def _batch_download(self, keylist, big_file_list=None, output_policy=lambda x: x):
+    def _batch_download(self, keylist, big_file_list=None,
+                        output_policy=lambda x: x):
         """
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
@@ -345,7 +347,7 @@ class MultipleBackupDriver:
 
     def synch_all(self):
         for backup in self.backups:
-            qbackup = self.QBackupClass(backup, authentication)
+            qbackup = self.QBackupClass(backup, my_auth)
             qbackup.synch()
 
 
@@ -397,9 +399,9 @@ class ProgressHandler:
 
     def __call__(self, progress, total):
         if not self.bar:
-            self.bar = progressbar.ProgressBar(widgets=[progressbar.Percentage(),
-                                                        progressbar.Bar()],
-                                               maxval=total).start()
+            self.bar = progressbar.ProgressBar(widgets=[
+                progressbar.Percentage(), progressbar.Bar()
+            ], maxval=total).start()
         self.bar.update(progress)
         if progress >= total:
             self.bar.finish()
@@ -415,6 +417,6 @@ if __name__ == '__main__':
 
     Default = CONFIG['DEFAULT']
 
-    authentication = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, authentication, QiniuFlatBackup)
+    my_auth = qauth.get_authentication()
+    multibackup = MultipleBackupDriver(Default, my_auth, QiniuFlatBackup)
     multibackup.synch_all()
