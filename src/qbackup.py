@@ -109,11 +109,43 @@ class QiniuBackup:
         for path, _, files in os.walk(str(self.localdir)):
             for file in files:
                 fullpath = pathlib.Path(path, file)
-                keypath = fullpath.relative_to(self.localdir).as_posix()
+                keypath = self.__decode_spec_characters(fullpath.relative_to(self.localdir))
                 # strip the basepath from fullpath, such that filename == key
+                # drop any @/
                 mtime = fullpath.stat().st_mtime
                 local_filename_and_mtime[keypath] = mtime
         return local_filename_and_mtime
+
+    @staticmethod
+    def __encode_spec_character(key):
+        """
+        translate key to local file path
+        ^/ -> ^@/
+        @ -> @@
+        // -> /@/
+        :param key string
+        :return local file path
+        """
+        key = key.replace('@', '@@')\
+            .replace('//', '/@/')\
+            .replace('//', '/@/')
+        if key.startswith('/'):
+            key = '@' + key
+        return key
+
+    @staticmethod
+    def __decode_spec_characters(local_path):
+        """
+        translate local file path to key string
+        to posix
+        ^@/ -> ^/
+        @@ -> @
+        /@/ -> //
+        :param local_path
+        :return: key string
+        """
+        pathname = local_path.as_posix()
+        return pathname.replace('@/', '/').replace('@@', '@')
 
     @staticmethod
     def _compare_local_and_remote(remote_key_and_ts, local_filename_and_mtime):
@@ -165,8 +197,7 @@ class QiniuBackup:
         else:
             return 0
 
-    def _batch_download(self, keylist, big_file_list=None,
-                        output_policy=lambda x: x):
+    def _batch_download(self, keylist, big_file_list=None):
         """
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
@@ -180,9 +211,11 @@ class QiniuBackup:
 
         for key in keylist:
             self.logger('INFO', 'downloading: ' + key)
-            file = output_policy(key)
+            file = QiniuBackup.__encode_spec_character(key)
             subpath = self.localdir / file
-            for parent in list(subpath.parents)[:-1]:  # ignore ','
+            parents = [str(p) for p in subpath.parents]
+            parents.sort(key=len)
+            for parent in parents[1:]:  # ignore ','
                 dirpath = self.localdir / parent
                 if not dirpath.exists():
                     dirpath.mkdir()
@@ -201,8 +234,9 @@ class QiniuBackup:
         token = self.auth.upload_token(self.bucketname)
         params = {'x:a': 'a'}
 
-        for file in filelist:
-            self._upload_file(token, file, file, params)
+        for key in filelist:
+            filename = QiniuBackup.__encode_spec_character(key)
+            self._upload_file(token, key, filename, params)
 
     def _download_file(self, key, file, big_file_list):
         if big_file_list and big_file_list[key]:
@@ -251,7 +285,7 @@ class QiniuBackup:
                                 mime_type=mime_type,
                                 check_crc=True,
                                 progress_handler=progress)
-        assert ret['key'] == file
+        assert ret['key'] == key
 
         future = time.time() + 10  # sec since Epoch
         os.utime(file_path, times=(future, future))
@@ -420,5 +454,5 @@ if __name__ == '__main__':
     Default = CONFIG['DEFAULT']
 
     my_auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, my_auth, QiniuFlatBackup)
+    multibackup = MultipleBackupDriver(Default, my_auth, QiniuBackup)
     multibackup.synch_all()
