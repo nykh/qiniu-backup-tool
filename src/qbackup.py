@@ -3,6 +3,7 @@ __author__ = 'nykh'
 import pathlib
 import os
 import sys
+import mimetypes
 import datetime
 import time
 import qiniu
@@ -202,26 +203,7 @@ class QiniuBackup:
         params = {'x:a': 'a'}
 
         for file in filelist:
-            file_path = str(self.basepath / file)
-            mime_type = mimetypes.guess_type(file_path)[0]
-            # guess_type() return a tuple (mime_type, encoding),
-            # only mime_type is needed
-
-            progress = ProgressHandler()
-            ret, _ = qiniu.put_file(token, key=file,
-                                    file_path=file_path,
-                                    params=params,
-                                    mime_type=mime_type,
-                                    check_crc=True,
-                                    progress_handler=progress)
-            assert ret['key'] == file
-
-            future = time.time() + 10  # sec since Epoch
-            os.utime(file_path, times=(future, future))
-            # reset the atime and mtime in the future so that the file doesn't
-            # trigger the download criteria (remote ts > local ts)
-
-            self.logger('INFO', 'uploaded: ' + file)
+            self._upload_file(token, file, file, params)
 
     def _download_file(self, key, file, big_file_list):
         if big_file_list and big_file_list[key]:
@@ -254,6 +236,28 @@ class QiniuBackup:
                             'downloading ' + key + ' failed.')
                 return
             file.write(res.content)
+
+    def _upload_file(self, token, key, file, params):
+        file_path = str(self.basepath / file)
+        mime_type = mimetypes.guess_type(file_path)[0]
+        # guess_type() return a tuple (mime_type, encoding),
+        # only mime_type is needed
+
+        self.logger('INFO', 'uploading: ' + file + ' => ' + key)
+
+        progress = ProgressHandler()
+        ret, _ = qiniu.put_file(token, key=key,
+                                file_path=file_path,
+                                params=params,
+                                mime_type=mime_type,
+                                check_crc=True,
+                                progress_handler=progress)
+        assert ret['key'] == file
+
+        future = time.time() + 10  # sec since Epoch
+        os.utime(file_path, times=(future, future))
+        # reset the atime and mtime in the future so that the file doesn't
+        # trigger the download criteria (remote ts > local ts)
 
 
 class QiniuFlatBackup(QiniuBackup):
@@ -304,34 +308,11 @@ class QiniuFlatBackup(QiniuBackup):
         if not filelist:
             return
 
-        import mimetypes
-
         token = self.auth.upload_token(self.bucketname)
         params = {'x:a': 'a'}
 
         for file in filelist:
-            key = file
-            file = self.encoding(file)
-            file_path = str(self.basepath / file)
-            mime_type = mimetypes.guess_type(file_path)[0]
-            # guess_type() return a tuple (mime_type, encoding),
-            # only mime_type is needed
-
-            self.logger('INFO', 'uploading: ' + file + ' => ' + key)
-
-            progress = ProgressHandler()
-            ret, _ = qiniu.put_file(token, key=file,
-                                    file_path=file_path,
-                                    params=params,
-                                    mime_type=mime_type,
-                                    check_crc=True,
-                                    progress_handler=progress)
-            assert ret['key'] == file
-
-            future = time.time() + 10  # sec since Epoch
-            os.utime(file_path, times=(future, future))
-            # reset the atime and mtime in the future so that the file doesn't
-            # trigger the download criteria (remote ts > local ts)
+            self._upload_file(token, file, self.encoding(file), params)
 
 
 class MultipleBackupDriver:
