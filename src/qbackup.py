@@ -7,6 +7,7 @@ import datetime
 import time
 import qiniu
 from qiniu import BucketManager
+from progressive.bar import Bar as ProgressBar
 import qauth
 
 
@@ -37,10 +38,10 @@ class QiniuBackup:
         self.validate_local_folder()
 
         download_file_list, upload_file_list = \
-            QiniuBackup.compare_local_and_remote(self.list_remote_bucket(),
-                                                 self.list_local_files())
-        self.batch_download(download_file_list)
-        self.batch_upload(upload_file_list)
+            QiniuBackup._compare_local_and_remote(self._list_remote_bucket(),
+                                                 self._list_local_files())
+        self._batch_download(download_file_list)
+        self._batch_upload(upload_file_list)
 
         self.logger('INFO', "Bucket and local folder are synched!")
 
@@ -61,7 +62,7 @@ class QiniuBackup:
             self.logger('ERR', str(self.basepath) + ' is not writable')
             sys.exit(1)
 
-    def list_remote_bucket(self):
+    def _list_remote_bucket(self):
         """
         traverse the buckt through the Qiniu API and return a list of keys
         and timestamp
@@ -87,7 +88,7 @@ class QiniuBackup:
 
         return key_list
 
-    def list_local_files(self):
+    def _list_local_files(self):
         '''
         :return:a dict mapping filename to last modified time (ST_MTIME)
         '''
@@ -102,7 +103,7 @@ class QiniuBackup:
         return local_filename_and_mtime
 
     @staticmethod
-    def compare_local_and_remote(remote_key_and_ts, local_filename_and_mtime):
+    def _compare_local_and_remote(remote_key_and_ts, local_filename_and_mtime):
         '''
         Compare the local files and remote list of items,
         produce a tuple of two lists, one lists files on remote
@@ -152,7 +153,7 @@ class QiniuBackup:
         else:
             return 0
 
-    def batch_download(self, keylist, output_policy=lambda x: x):
+    def _batch_download(self, keylist, output_policy=lambda x: x):
         '''
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
@@ -182,7 +183,7 @@ class QiniuBackup:
                 local_copy.write(res.content)
             self.logger('INFO', 'downloaded: ' + key)
 
-    def batch_upload(self, filelist):
+    def _batch_upload(self, filelist):
         '''
         same as batch_download but for uploadging, requires authentication
         :param filelist: list of file names (including path) to be uploaded
@@ -201,10 +202,16 @@ class QiniuBackup:
             mime_type = mimetypes.guess_type(file_path)[0]
             # guess_type() return a tuple (mime_type, encoding),
             # only mime_type is needed
+
+            progress = QiniuBackup.progress_handler()
             ret, _ = qiniu.put_file(token, key=file,
-                                    file_path=file_path, params=params,
-                                    mime_type=mime_type, check_crc=True)
+                                    file_path=file_path,
+                                    params=params,
+                                    mime_type=mime_type,
+                                    check_crc=True,
+                                    progress_handler=progress)
             assert ret['key'] == file
+            del progress
 
             future = time.time() + 10  # sec since Epoch
             os.utime(file_path, times=(future, future))
@@ -213,6 +220,21 @@ class QiniuBackup:
 
             self.logger('INFO', 'uploaded: ' + file)
 
+    class progress_handler:
+        def __init__(self):
+            self.bar = None
+
+        def __call__(self, progress, total):
+            if not self.bar:
+                self.bar = ProgressBar(max_value=total)
+                self.bar.cursor.clear_lines(2)  # Make some room
+                self.bar.cursor.save()  # Mark starting line
+            else:
+                self.bar.cursor.restore()  # Return cursor to start
+            self.bar.draw(value=progress)
+
+        def __del__(self):
+            del self.bar
 
 class QiniuFlatBackup(QiniuBackup):
     '''
@@ -223,12 +245,12 @@ class QiniuFlatBackup(QiniuBackup):
         self.encoding = encoding_func
         self.decoding = decoding_func
 
-    def list_local_files(self):
+    def _list_local_files(self):
         local_files = os.listdir(str(self.basepath))
         return {self.decoding(file): (self.basepath / file).stat().st_mtime
                 for file in local_files}
 
-    def batch_download(self, keylist, output_policy=lambda x: x):
+    def _batch_download(self, keylist, output_policy=lambda x: x):
         '''
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
@@ -255,7 +277,7 @@ class QiniuFlatBackup(QiniuBackup):
                 local_copy.write(res.content)
             self.logger('INFO', 'downloaded: ' + key + ' => ' + file)
 
-    def batch_upload(self, filelist):
+    def _batch_upload(self, filelist):
         '''
         same as batch_download but for uploadging, requires authentication
         :param filelist: list of file names (including path) to be uploaded
@@ -277,17 +299,23 @@ class QiniuFlatBackup(QiniuBackup):
             mime_type = mimetypes.guess_type(file_path)[0]
             # guess_type() return a tuple (mime_type, encoding),
             # only mime_type is needed
-            ret, _ = qiniu.put_file(token, key=key,
-                                    file_path=file_path, params=params,
-                                    mime_type=mime_type, check_crc=True)
-            assert ret['key'] == key
+
+            self.logger('INFO', 'uploading: ' + file + ' => ' + key)
+
+            progress = QiniuBackup.progress_handler()
+            ret, _ = qiniu.put_file(token, key=file,
+                                    file_path=file_path,
+                                    params=params,
+                                    mime_type=mime_type,
+                                    check_crc=True,
+                                    progress_handler=progress)
+            assert ret['key'] == file
+            del progress
 
             future = time.time() + 10  # sec since Epoch
             os.utime(file_path, times=(future, future))
             # reset the atime and mtime in the future so that the file doesn't
             # trigger the download criteria (remote ts > local ts)
-
-            self.logger('INFO', 'uploaded: ' + file + ' => ' + key)
 
 
 class MultipleBackupDriver():
