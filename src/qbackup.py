@@ -198,8 +198,6 @@ class QiniuBackup:
         if not filelist:
             return
 
-        import mimetypes
-
         token = self.auth.upload_token(self.bucketname)
         params = {'x:a': 'a'}
 
