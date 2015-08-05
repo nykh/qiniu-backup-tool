@@ -17,7 +17,7 @@ class QiniuBackup:
     BATCH_LIMIT = 10  # maybe optimized under real condition
     CHUNK_SIZE = 1024 * 1024
 
-    def __init__(self, options, auth):
+    def __init__(self, options, auth, logger=None):
         self.bucketname = options['bucketname']
         self.bucketurl = options['bucketurl']
         self.localdir = pathlib.Path(options['local_dir'])
@@ -30,8 +30,11 @@ class QiniuBackup:
         if self.download_size_threshold < self.CHUNK_SIZE * 2:
             self.download_size_threshold = self.CHUNK_SIZE * 2
 
-        self.logger = EventLogger(verbose=self.verbose,
-                                  log_to_file=self.log_to_file)
+        if logger is None:
+            self.logger = EventLogger(verbose=self.verbose,
+                                      log_to_file=self.log_to_file)
+        else:
+            self.logger = logger
 
         self.auth = auth
 
@@ -299,10 +302,10 @@ class QiniuFlatBackup(QiniuBackup):
     This version of Qiniu Backup assumes the local folder is empty
     """
 
-    def __init__(self, options, auth,
+    def __init__(self, options, auth, logger=None,
                  encoding_func=lambda s: s.replace('/', '%2F'),
                  decoding_func=lambda s: s.replace('%2F', '/')):
-        super(QiniuFlatBackup, self).__init__(options, auth)
+        super(QiniuFlatBackup, self).__init__(options, auth, logger)
         self.encoding = encoding_func
         self.decoding = decoding_func
 
@@ -378,18 +381,21 @@ class MultipleBackupDriver:
         verbose = options.getboolean('verbose', fallback=False)
         log = options.getboolean('log', fallback=False)
 
-        self.backups = []
+        self.tasks = []
         for bn, bu, ld in zip(bucketsnames, bucketurls, localdir):
-            self.backups.append(self._SectionProxyProxy(
+            self.tasks.append(self._SectionProxyProxy(
                 {'bucketname': bn,
                  'bucketurl': bu,
                  'local_dir': ld,
                  'verbose': verbose,
                  'log': log}))
 
+        self.logger = EventLogger(verbose=verbose,
+                                  log_to_file=log)
+
     def synch_all(self):
-        for backup in self.backups:
-            qbackup = self.QBackupClass(backup, my_auth)
+        for task in self.tasks:
+            qbackup = self.QBackupClass(task, self.auth, self.logger)
             qbackup.synch()
 
 
