@@ -9,7 +9,7 @@ import time
 import qiniu
 from qiniu import BucketManager
 import progressbar
-import qauth
+import src.qauth as qauth
 import requests as req
 
 
@@ -88,14 +88,14 @@ class QiniuBackup:
         bucket = BucketManager(self.auth)
 
         while not done:
-            ret, done, _ = bucket.list(self.bucketname, marker=marker,
+            res, done, _ = bucket.list(self.bucketname, marker=marker,
                                        limit=self.BATCH_LIMIT)
-            if not ret:
+            if not res:
                 self.logger('ERROR',
                             'could not establish connection with cloud. Exit.')
                 sys.exit(1)
-            marker = ret.get('marker')
-            for resource in ret['items']:
+            marker = res.get('marker')
+            for resource in res['items']:
                 key_list[resource['key']] = resource['putTime']
                 big_file[resource['key']] = resource['fsize'] \
                     if resource['fsize'] > self.download_size_threshold * 2 \
@@ -110,7 +110,8 @@ class QiniuBackup:
         for path, _, files in os.walk(str(self.localdir)):
             for file in files:
                 fullpath = pathlib.Path(path, file)
-                keypath = self.__decode_spec_characters(fullpath.relative_to(self.localdir))
+                keypath = self.__decode_spec_characters(
+                    fullpath.relative_to(self.localdir))
                 # strip the basepath from fullpath, such that filename == key
                 # drop any @/
                 mtime = fullpath.stat().st_mtime
@@ -127,8 +128,8 @@ class QiniuBackup:
         :param key string
         :return local file path
         """
-        key = key.replace('@', '@@')\
-            .replace('//', '/@/')\
+        key = key.replace('@', '@@') \
+            .replace('//', '/@/') \
             .replace('//', '/@/')
         if key.startswith('/'):
             key = '@' + key
@@ -204,8 +205,6 @@ class QiniuBackup:
         side-effect: batch download list of resources from qiniu bucket
         :except: raises exception if any of the request return an error
         :param keylist: list of keys for downloading
-        :param output_policy: callback function that determines the output
-                              filename based on the key
         :return None
         """
         if not keylist:
@@ -310,17 +309,16 @@ class QiniuFlatBackup(QiniuBackup):
     def _list_local_files(self):
         def detect_dir(path):
             if path.is_dir():
-                self.logger('ERROR', 'subdirectory is detected in a supposedly '
-                                     'flat structure. Please review local file system '
-                                     'or program setting. Exit now.')
+                self.logger('ERROR', "subdirectory is detected in a "
+                            "flat structure. Please review local file system "
+                            "or program setting. Exit now.")
                 sys.exit(1)
             else:
                 return True
 
         return {self.decoding(str(file.relative_to(self.localdir))):
-                    file.stat().st_mtime
-                for file in self.localdir.iterdir()
-                if detect_dir(file)}
+                file.stat().st_mtime
+                for file in self.localdir.iterdir() if detect_dir(file)}
 
     def _batch_download(self, keylist, big_file_list=None,
                         output_policy=lambda x: x):
