@@ -92,7 +92,8 @@ class QiniuBackupScaled(QiniuFlatBackup):
                 # I only need the db to serve as a set
                 path = self.localdir / file
                 if not path.exists():
-                    self._download_file(key, file, remote_file['fsize'])
+                    with open(file, 'wb') as filestrem:
+                        self._download_file(key, filestrem, remote_file['fsize'])
         return remote_file_set
 
     def upload_local_files(self, remote_file_set):
