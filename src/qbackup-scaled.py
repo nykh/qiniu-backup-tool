@@ -26,11 +26,18 @@ class QiniuBackupScaled(QiniuFlatBackup):
         This overrides the original synch() and rebuilds an *online* version of the code
         :return:
         """
+        self.logger('INFO', 'Begin synching ' + str(self.localdir)
+                    + ' <=> ' + self.bucketname)
         self.validate_local_folder()
+        self.logger('INFO', 'Check for download')
         remote_list = self.download_remote_files()
+        self.logger('INFO', 'Check for upload')
         self.upload_local_files(remote_list)
+        self.logger('INFO', 'Bucket and local folder are synched!')
         remote_list.close()
         os.remove(self.TEMP_DB_FILENAME)
+        self.logger('DEBUG', 'Cleaning up completed')
+
 
     def validate_local_folder(self):
         if not self.localdir.exists():
@@ -97,7 +104,7 @@ class QiniuBackupScaled(QiniuFlatBackup):
         :return:None
         """
         token = self.auth.upload_token(self.bucketname)
-        for file in self.localdir.iterdir():
+        for file in os.listdir(str(self.localdir)):
             if file not in remote_file_set:
                 self._upload_file(token,
                                   self.decoding(file),
@@ -116,6 +123,6 @@ if __name__ == '__main__':
     Default = CONFIG['DEFAULT']
 
     my_auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, my_auth, QiniuFlatBackup)
+    multibackup = MultipleBackupDriver(Default, my_auth, QiniuBackupScaled)
     multibackup.synch_all()
 
