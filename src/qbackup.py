@@ -45,11 +45,12 @@ class QiniuBackup:
 
         self.validate_local_folder()
 
+        local_timestamp = self._list_local_files()
         remote_timstamp, big = self._list_remote_bucket()
 
         download_file_list, upload_file_list = \
             QiniuBackup._compare_local_and_remote(remote_timstamp,
-                                                  self._list_local_files())
+                                                  local_timestamp)
         self._batch_download(download_file_list, big)
         self._batch_upload(upload_file_list)
 
@@ -154,7 +155,8 @@ class QiniuBackup:
         produce a tuple of two lists, one lists files on remote
         not in local drive (to be downloaded), the other lists files
         that exist on the local drive but not on remote (to be uploaded).
-        :param remote_key_and_ts: output of the `list_bucket` function
+        :param local_filename_and_mtime: output of `list_remote_files` function
+        :param remote_key_and_ts: output of the `list_local_flles` function
         :rtype: object
         :return: ([files to be downloaded], [files to be uploaded])
         """
@@ -306,9 +308,19 @@ class QiniuFlatBackup(QiniuBackup):
         self.decoding = decoding_func
 
     def _list_local_files(self):
-        local_files = os.listdir(str(self.localdir))
-        return {self.decoding(file): (self.localdir / file).stat().st_mtime
-                for file in local_files}
+        def detect_dir(path):
+            if path.is_dir():
+                self.logger('ERROR', 'subdirectory is detected in a supposedly '
+                                     'flat structure. Please review local file system '
+                                     'or program setting. Exit now.')
+                sys.exit(1)
+            else:
+                return True
+
+        return {self.decoding(str(file.relative_to(self.localdir))):
+                    file.stat().st_mtime
+                for file in self.localdir.iterdir()
+                if detect_dir(file)}
 
     def _batch_download(self, keylist, big_file_list=None,
                         output_policy=lambda x: x):
@@ -454,5 +466,5 @@ if __name__ == '__main__':
     Default = CONFIG['DEFAULT']
 
     my_auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, my_auth, QiniuBackup)
+    multibackup = MultipleBackupDriver(Default, my_auth, QiniuFlatBackup)
     multibackup.synch_all()
