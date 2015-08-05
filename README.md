@@ -8,6 +8,7 @@ clone the file to local directory
 
 `git clone https://github.com/nykh/qiniu-backup-tool.git`
 
+or download from the Release tab.
 
 Modify **config.ini** for your own application. Each Qiniu bucket comes with a Name, an URL address (under `空间设置->域名设置`). You should specify the Name, URL, and the Local Directory you wish the bucket to synch with as a triple in the config file. If you wish to synch multiple buckets, concatenate them with a colon `;`. For example
 
