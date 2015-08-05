@@ -375,8 +375,8 @@ class MultipleBackupDriver:
         self.QBackupClass = backup_class
 
         bucketsnames = [s.strip() for s in options['bucketname'].split(';')]
-        bucketurls = [s.strip() for s in Default['bucketurl'].split(';')]
-        localdir = [s.strip() for s in Default['local_dir'].split(';')]
+        bucketurls = [s.strip() for s in options['bucketurl'].split(';')]
+        localdir = [s.strip() for s in options['local_dir'].split(';')]
         assert len(bucketsnames) == len(bucketurls) == len(localdir)
         verbose = options.getboolean('verbose', fallback=False)
         log = options.getboolean('log', fallback=False)
