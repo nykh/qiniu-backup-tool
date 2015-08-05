@@ -224,7 +224,7 @@ class QiniuBackup:
                 if not dirpath.exists():
                     dirpath.mkdir()
             with open(str(self.localdir / subpath), 'wb') as local_copy:
-                self._download_file(key, local_copy, big_file_list)
+                self._download_file(key, local_copy, big_file_list[key])
 
     def _batch_upload(self, filelist):
         """
@@ -242,8 +242,8 @@ class QiniuBackup:
             filename = QiniuBackup.__encode_spec_character(key)
             self._upload_file(token, key, filename, params)
 
-    def _download_file(self, key, file, big_file_list):
-        if big_file_list and big_file_list[key]:
+    def _download_file(self, key, file, size=0):
+        if size > self.download_size_threshold:
             res = req.get(self.bucketurl + key, stream=True)
             if res.status_code != 200:
                 self.logger('WARN',
@@ -252,7 +252,7 @@ class QiniuBackup:
 
             progress_bar = ProgressHandler(self.verbose)
             progress = 0
-            total = big_file_list[key]
+            total = size
             for chunk in res.iter_content(chunk_size=self.CHUNK_SIZE):
                 if not chunk:
                     continue
@@ -343,7 +343,7 @@ class QiniuFlatBackup(QiniuBackup):
             file = self.encoding(key)
             file_path = str(self.localdir / file)
             with open(file_path, 'wb') as local_copy:
-                self._download_file(key, local_copy, big_file_list)
+                self._download_file(key, local_copy, big_file_list[key])
 
     def _batch_upload(self, filelist):
         """
