@@ -214,7 +214,6 @@ class QiniuBackup:
             return
 
         for key in keylist:
-            self.logger('INFO', 'downloading: ' + key)
             file = QiniuBackup.__encode_spec_character(key)
             subpath = self.localdir / file
             parents = [str(p) for p in subpath.parents]
@@ -243,6 +242,8 @@ class QiniuBackup:
             self._upload_file(token, key, filename, params)
 
     def _download_file(self, key, file, size=0):
+        self.logger('INFO', 'downloading: ' + key + ' => ' + file)
+
         if size > self.download_size_threshold:
             res = req.get(self.bucketurl + key, stream=True)
             if res.status_code != 200:
@@ -338,7 +339,6 @@ class QiniuFlatBackup(QiniuBackup):
 
         for key in keylist:
             file = self.encoding(key)
-            self.logger('INFO', 'downloading: ' + key + ' => ' + file)
 
             file = self.encoding(key)
             file_path = str(self.localdir / file)
