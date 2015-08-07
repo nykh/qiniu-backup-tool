@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
+
 __author__ = 'nykh'
 
 import pathlib
@@ -6,12 +10,11 @@ import sys
 import mimetypes
 import datetime
 import time
+
 import qiniu
 from qiniu import BucketManager
 import progressbar
-import src.qauth as qauth
 import requests as req
-
 
 class QiniuBackup:
     BATCH_LIMIT = 10  # maybe optimized under real condition
@@ -339,8 +342,6 @@ class QiniuFlatBackup(QiniuBackup):
 
         for key in keylist:
             file = self.encoding(key)
-
-            file = self.encoding(key)
             file_path = str(self.localdir / file)
             with open(file_path, 'wb') as local_copy:
                 self._download_file(key, local_copy, big_file_list[key])
@@ -459,16 +460,4 @@ class ProgressHandler:
             self.bar.finish()
 
 
-if __name__ == '__main__':
-    import configparser
 
-    CONFIG = configparser.ConfigParser()
-    if not CONFIG.read('config.ini'):
-        print(EventLogger.format('ERR', 'could not read config file!'))
-        sys.exit(1)
-
-    Default = CONFIG['DEFAULT']
-
-    my_auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, my_auth, QiniuFlatBackup)
-    multibackup.synch_all()

@@ -1,11 +1,8 @@
-__author__ = 'nykh'
+# -*- coding: utf-8 -*-
 
-import sys
-import os
-import dbm
-import qiniu
-import src.qauth as qauth
-from src.qbackup import MultipleBackupDriver, QiniuFlatBackup, EventLogger
+from __future__ import absolute_import
+
+__author__ = 'nykh'
 
 """
 scalable version of qbackup.
@@ -13,6 +10,16 @@ scalable version of qbackup.
 In real test cases where there are tens of thousands of files online, we found out it is not
 practical to pull the full list of files into RAM (it can take hours).
 """
+
+import sys
+import os
+import dbm
+
+import qiniu
+
+import qbackup.qauth
+from qbackup.qbackup import MultipleBackupDriver, QiniuFlatBackup, EventLogger
+
 
 class QiniuBackupScaled(QiniuFlatBackup):
     BATCH_LIMIT = 100
@@ -112,19 +119,4 @@ class QiniuBackupScaled(QiniuFlatBackup):
                                   self.decoding(file),
                                   file,
                                   params={'x:a': 'a'})
-
-
-if __name__ == '__main__':
-    from configparser import ConfigParser
-
-    CONFIG = ConfigParser()
-    if not CONFIG.read('config.ini'):
-        print(EventLogger.format('ERROR', 'could not read config file!'))
-        sys.exit(1)
-
-    Default = CONFIG['DEFAULT']
-
-    my_auth = qauth.get_authentication()
-    multibackup = MultipleBackupDriver(Default, my_auth, QiniuBackupScaled)
-    multibackup.synch_all()
 
