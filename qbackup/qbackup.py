@@ -17,7 +17,7 @@ import progressbar
 import requests as req
 
 class QiniuBackup:
-    BATCH_LIMIT = 10  # maybe optimized under real condition
+    BATCH_LIMIT = 100  # maybe optimized under real condition
     CHUNK_SIZE = 1024 * 1024
 
     def __init__(self, options, auth, logger=None):
@@ -252,7 +252,8 @@ class QiniuBackup:
             if res.status_code != 200:
                 self.logger('WARN',
                             'downloading ' + key + ' failed.')
-                return
+                raise ConnectionError('Remote server returned status '
+                                      + res.status_code)
 
             progress_bar = ProgressHandler(self.verbose)
             progress = 0
@@ -275,7 +276,8 @@ class QiniuBackup:
             if res.status_code != 200:
                 self.logger('WARN',
                             'downloading ' + key + ' failed.')
-                return
+                raise ConnectionError('Remote server returned status '
+                                      + res.status_code)
             file.write(res.content)
 
     def _upload_file(self, token, key, file, params):

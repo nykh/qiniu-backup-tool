@@ -26,6 +26,7 @@ class QiniuBackupScaled(QiniuFlatBackup):
     BATCH_LIMIT = 100
     TEMP_DB_DIR = Path('tmp')
     TEMP_DB = 'temp-reomte-directory'
+    MAX_ATTEMPT = 4
 
     def __init__(self, options, auth, logger):
         super(QiniuBackupScaled, self).__init__(options, auth, logger)
@@ -43,8 +44,9 @@ class QiniuBackupScaled(QiniuFlatBackup):
         if not self.TEMP_DB_DIR.exists():
             self.logger('DEBUG', 'Create temporary folder')
             self.TEMP_DB_DIR.mkdir()
-        TEMP_DB = self.bucketname + '-' + now().format('YYYY-MM-DD-HH-mm-ss')
-        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / TEMP_DB), 'c')
+        temp_db = self.bucketname + '-' + now().format('YYYY-MM-DD-HH-mm-ss')
+        self.logger('DEBUG', 'Create database file tmp/' + temp_db)
+        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / temp_db), 'c')
 
         self.logger('INFO', 'Check for download')
         self.download_remote_files(remote_file_db)
@@ -58,7 +60,6 @@ class QiniuBackupScaled(QiniuFlatBackup):
             for file in self.TEMP_DB_DIR.iterdir():
                 file.unlink()  # remove file
         self.logger('DEBUG', 'Cleaning up completed')
-
 
     def validate_local_folder(self):
         if not self.localdir.exists():
@@ -80,8 +81,8 @@ class QiniuBackupScaled(QiniuFlatBackup):
         # In addition, check for directory in a flat structure
         elif any(s.is_dir() for s in self.localdir.iterdir()):
             self.logger('ERROR', "subdirectory is detected in a "
-                            "flat structure. Please review local file system "
-                            "or program setting. Exit now.")
+                        "flat structure. Please review local file system "
+                        "or program setting. Exit now.")
             sys.exit(1)
 
     def download_remote_files(self, remote_file_set):
@@ -101,33 +102,64 @@ class QiniuBackupScaled(QiniuFlatBackup):
             if not res:
                 self.logger('ERROR',
                             'could not establish connection with cloud. Exit.')
-                sys.exit(1)
+                raise ConnectionError('could not establish connection with cloud')
             marker = res.get('marker')
 
             for remote_file in res['items']:
                 key = remote_file['key']
                 file = self.encoding(key)
-                remote_file_set[file] = ''
+                remote_file_set[file] = str(remote_file['fsize'])
                 # I only need the db to serve as a set
                 path = self.localdir / file
                 if not path.exists():
-                    with open(str(path), 'wb') as filestrem:
-                        self._download_file(key, filestrem, remote_file['fsize'])
+                    attempt = 0
+                    while True:
+                        if attempt > self.MAX_ATTEMPT:
+                            self.logger('ERROR', 'The file has failed to download. '
+                                                 'Removing incomplete file')
+                            if path.exists():
+                                path.unlink()
+                            break
+
+                        try:
+                            attempt += 1
+                            with open(str(path), 'wb') as filestrem:
+                                self._download_file(key, filestrem, remote_file['fsize'])
+                        except ConnectionError:
+                            self.logger('WARN',
+                                        'There is trouble downloading the file. '
+                                        'Attempt ' + str(attempt) + ' out of '
+                                        + str(self.MAX_ATTEMPT))
+                            continue
+
+                        # no exception is thrown
+                        if path.stat().st_size == remote_file['fsize']:
+                            self.logger('INFO', 'file has been downloaded successfully.')
+                            break  # success!
+                        else:
+                            self.logger('WARN',
+                                        'file downloaded is not complete.'
+                                        'Attempt ' + str(attempt) + ' out of '
+                                        + str(self.MAX_ATTEMPT))
         return remote_file_set
 
     def upload_local_files(self, remote_file_set):
         """
         os.listdir all the local files, check whether they exist remotely
         (by checking in the remote_filelist, and upload any file that doesn't.
-        :param value from download_remote_files function: a list of
-               remote files stored in a persistent database
+        :param remote_file_set: a mapping of keys to file size stored in database
         :return:None
         """
         token = self.auth.upload_token(self.bucketname)
         for file in os.listdir(str(self.localdir)):
             if file not in remote_file_set:
+                key = self.decoding(file)
                 self._upload_file(token,
-                                  self.decoding(file),
+                                  key,
                                   file,
                                   params={'x:a': 'a'})
-
+                # ideally, remote_file_set[key] should store the
+                # file size of the uploaded file,
+                # currently I only put in a zero for every newly uploaded file
+                # and assume uploading is handled correctly
+                remote_file_set[key] = '0'
