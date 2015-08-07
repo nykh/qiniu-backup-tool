@@ -9,13 +9,15 @@ clone the file to local directory
 `git clone https://github.com/nykh/qiniu-backup-tool.git`
 
 
-Modify **config.ini** for your own application. Each Qiniu bucket comes with a Name, an URL address (under `空间设置->域名设置`). You should specify the Name, URL, and the Local Directory you wish the bucket to synch with as a triple in the config file. If you wish to synch multiple buckets, concatenate them with a colon `;`. For example
+Create a **config.ini** for your own application. Each Qiniu bucket comes with a Name, an URL address (under `空间设置->域名设置`). You should specify the Name, URL, and the Local Directory you wish the bucket to synch with as a triple in the config file. If you wish to synch multiple buckets, concatenate them with a colon `;`. For example
 
 > bucketname = BucketA; BucketB; BucketC
 
 > bucketurl = http://bucketA/; http://bucketB/; http://bucketC/
 
 > local_dir = A; B; C
+
+You can find an example of working config.ini in the `example` folder.
 
 ### key file
 
@@ -42,7 +44,7 @@ If the local directories don't yet exist they will be created upon the first run
 
 Now that you have installed all the required library and prepared your key file, simplify run the program
 
-`python3 src/qback.py`
+`python3 __main__.py`
 
 and your local folder will be synched with your Qiniu bucket.
 
