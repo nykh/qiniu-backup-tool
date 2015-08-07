@@ -99,7 +99,6 @@ class QiniuBackupScaled(QiniuFlatBackup):
                 # I only need the db to serve as a set
                 path = self.localdir / file
                 if not path.exists():
-                    self.logger('INFO', 'downloading: ' + key + ' => ' + file)
                     with open(str(path), 'wb') as filestrem:
                         self._download_file(key, filestrem, remote_file['fsize'])
         return remote_file_set
