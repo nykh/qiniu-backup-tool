@@ -13,6 +13,7 @@ practical to pull the full list of files into RAM (it can take hours).
 
 import sys
 import os
+from pathlib import Path
 import dbm
 
 import qiniu
@@ -23,7 +24,8 @@ from qbackup.qbackup import MultipleBackupDriver, QiniuFlatBackup, EventLogger
 
 class QiniuBackupScaled(QiniuFlatBackup):
     BATCH_LIMIT = 100
-    TEMP_DB_FILENAME = 'temp-reomte-directory'
+    TEMP_DB_DIR = Path('tmp')
+    TEMP_DB = 'temp-reomte-directory'
 
     def __init__(self, options, auth, logger):
         super(QiniuBackupScaled, self).__init__(options, auth, logger)
@@ -37,12 +39,16 @@ class QiniuBackupScaled(QiniuFlatBackup):
                     + ' <=> ' + self.bucketname)
         self.validate_local_folder()
         self.logger('INFO', 'Check for download')
-        remote_list = self.download_remote_files()
+        if not self.TEMP_DB_DIR.exists():
+            self.TEMP_DB_DIR.mkdir()
+        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / self.TEMP_DB), 'c')
+        self.download_remote_files(remote_file_db)
         self.logger('INFO', 'Check for upload')
-        self.upload_local_files(remote_list)
+        self.upload_local_files(remote_file_db)
         self.logger('INFO', 'Bucket and local folder are synched!')
-        remote_list.close()
-        os.remove(self.TEMP_DB_FILENAME)
+        remote_file_db.close()
+        for file in self.TEMP_DB_DIR.iterdir():
+            file.unlink()  # remove file
         self.logger('DEBUG', 'Cleaning up completed')
 
 
@@ -70,7 +76,7 @@ class QiniuBackupScaled(QiniuFlatBackup):
                             "or program setting. Exit now.")
             sys.exit(1)
 
-    def download_remote_files(self):
+    def download_remote_files(self, remote_file_set):
         """
         list all the files on the bucket (100 per batch)
         check for existence locally. Download any file that is not present
@@ -80,8 +86,6 @@ class QiniuBackupScaled(QiniuFlatBackup):
         done = False
         marker = None
         bucket = qiniu.BucketManager(self.auth)
-
-        remote_file_set = dbm.open(self.TEMP_DB_FILENAME, 'c')
 
         while not done:
             res, done, _ = bucket.list(self.bucketname, marker=marker,
