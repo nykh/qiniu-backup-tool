@@ -19,7 +19,7 @@ import dbm
 from arrow import now
 import qiniu
 
-from qbackup.qbackup import QiniuFlatBackup, EventLogger
+from qbackup.qbackup import QiniuFlatBackup
 
 
 class QiniuBackupScaled(QiniuFlatBackup):
@@ -46,15 +46,14 @@ class QiniuBackupScaled(QiniuFlatBackup):
             self.TEMP_DB_DIR.mkdir()
         temp_db = self.bucketname + '-' + now().format('YYYY-MM-DD-HH-mm-ss')
         self.logger('DEBUG', 'Create database file tmp/' + temp_db)
-        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / temp_db), 'c')
 
-        self.logger('INFO', 'Check for download')
-        self.download_remote_files(remote_file_db)
-        self.logger('INFO', 'Check for upload')
-        self.upload_local_files(remote_file_db)
-        self.logger('INFO', 'Bucket and local folder are synched!')
+        with dbm.open(str(self.TEMP_DB_DIR / temp_db), 'c') as remote_file_db:
+            self.logger('INFO', 'Check for download')
+            self.download_remote_files(remote_file_db)
+            self.logger('INFO', 'Check for upload')
+            self.upload_local_files(remote_file_db)
+            self.logger('INFO', 'Bucket and local folder are synched!')
 
-        remote_file_db.close()
         if self.purge:
             self.logger('DEBUG', 'removing temporary database files...')
             for file in self.TEMP_DB_DIR.iterdir():
