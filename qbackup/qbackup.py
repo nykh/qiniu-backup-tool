@@ -245,7 +245,7 @@ class QiniuBackup:
             self._upload_file(token, key, filename, params)
 
     def _download_file(self, key, file, size=0):
-        self.logger('INFO', 'downloading: ' + key + ' => ' + file)
+        self.logger('INFO', 'downloading: ' + key + ' => ' + file.name)
 
         if size > self.download_size_threshold:
             res = req.get(self.bucketurl + key, stream=True)
