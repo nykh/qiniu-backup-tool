@@ -16,10 +16,10 @@ import os
 from pathlib import Path
 import dbm
 
+from arrow import now
 import qiniu
 
-import qbackup.qauth
-from qbackup.qbackup import MultipleBackupDriver, QiniuFlatBackup, EventLogger
+from qbackup.qbackup import QiniuFlatBackup, EventLogger
 
 
 class QiniuBackupScaled(QiniuFlatBackup):
@@ -29,6 +29,7 @@ class QiniuBackupScaled(QiniuFlatBackup):
 
     def __init__(self, options, auth, logger):
         super(QiniuBackupScaled, self).__init__(options, auth, logger)
+        self.purge = options.getboolean('purge', fallback=True)
 
     def synch(self):
         """
@@ -38,17 +39,24 @@ class QiniuBackupScaled(QiniuFlatBackup):
         self.logger('INFO', 'Begin synching ' + str(self.localdir)
                     + ' <=> ' + self.bucketname)
         self.validate_local_folder()
-        self.logger('INFO', 'Check for download')
+
         if not self.TEMP_DB_DIR.exists():
+            self.logger('DEBUG', 'Create temporary folder')
             self.TEMP_DB_DIR.mkdir()
-        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / self.TEMP_DB), 'c')
+        TEMP_DB = self.bucketname + '-' + now().format('YYYY-MM-DD-HH-mm-ss')
+        remote_file_db = dbm.open(str(self.TEMP_DB_DIR / TEMP_DB), 'c')
+
+        self.logger('INFO', 'Check for download')
         self.download_remote_files(remote_file_db)
         self.logger('INFO', 'Check for upload')
         self.upload_local_files(remote_file_db)
         self.logger('INFO', 'Bucket and local folder are synched!')
+
         remote_file_db.close()
-        for file in self.TEMP_DB_DIR.iterdir():
-            file.unlink()  # remove file
+        if self.purge:
+            self.logger('DEBUG', 'removing temporary database files...')
+            for file in self.TEMP_DB_DIR.iterdir():
+                file.unlink()  # remove file
         self.logger('DEBUG', 'Cleaning up completed')
 
 
