@@ -1,3 +1,4 @@
 qiniu==7.0.5
 requests==2.6.0
 progressbar-latest==2.4
+arrow=0.6.0
