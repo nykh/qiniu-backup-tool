@@ -61,24 +61,10 @@ class QiniuBackupScaled(QiniuFlatBackup):
         self.logger('DEBUG', 'Cleaning up completed')
 
     def validate_local_folder(self):
-        if not self.localdir.exists():
-            self.logger('WARNING', 'could not find ' + str(self.localdir)
-                        + ', create folder')
-            try:
-                self.localdir.mkdir()
-            except PermissionError:
-                self.logger('ERR', 'unable to create folder. Exit now.')
-                sys.exit(1)
-            self.logger('INFO', 'folder created!')
-        elif not self.localdir.is_dir():
-            self.logger('ERR', str(self.localdir) + ' is not a directory')
-            sys.exit(1)
-        elif not os.access(str(self.localdir), mode=os.W_OK | os.X_OK):
-            self.logger('ERR', str(self.localdir) + ' is not writable')
-            sys.exit(1)
+        super(QiniuBackupScaled, self).validate_local_folder()
 
         # In addition, check for directory in a flat structure
-        elif any(s.is_dir() for s in self.localdir.iterdir()):
+        if any(s.is_dir() for s in self.localdir.iterdir()):
             self.logger('ERROR', "subdirectory is detected in a "
                         "flat structure. Please review local file system "
                         "or program setting. Exit now.")

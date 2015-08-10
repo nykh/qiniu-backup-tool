@@ -59,3 +59,7 @@ The **verbose** and **log** option in the config file determines if the program 
 ###  size threshold
 
 The Qiniu API already has built in chunk transmission for upload and will automatically turn on if a file being uploaded is **bigger than 4MB**. The **size_threshold** option in the config file determines the size threshold for download only, in unit of KB, and can be as low as 2MB (=2048KB). When a file's size is over this threshold, transmission by chunks will activate for the file, and visually there will be a progress bar for this download (if you set **verbose** to true, of course).
+
+### purge
+
+The program will generate temporary database file in a `./tmp/` directory, which contains all the remote files and their sizes. Normally the database file is no longer needed after successful execution and the program will delete them automatically. But you can set this to **False** and leave the database files behind. The database can be used by `example/validate-execution.py` script to check whether local and remote directories are identical.

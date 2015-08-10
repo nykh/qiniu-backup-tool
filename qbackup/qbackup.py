@@ -64,14 +64,25 @@ class QiniuBackup:
 
     def validate_local_folder(self):
         if not self.localdir.exists():
-            self.logger('WARNING', 'could not find ' + str(self.localdir)
-                        + ', create folder')
-            try:
-                self.localdir.mkdir()
-            except PermissionError:
-                self.logger('ERR', 'unable to create folder. Exit now.')
-                sys.exit(1)
-            self.logger('INFO', 'folder created!')
+            self.logger('WARNING', 'could not find ' + str(self.localdir))
+            while True:
+                ans = input('Do you want to create folder '
+                            + str(self.localdir) + '? (Y/N) ').lower()
+                if ans in ('y' or 'yes'):
+                    try:
+                        self.localdir.mkdir()
+                    except PermissionError:
+                        self.logger('ERR', 'unable to create folder. Exit now.')
+                        sys.exit(1)
+                    self.logger('INFO', 'folder created!')
+                    break
+                elif ans in ('n' or 'no'):
+                    self.logger('INFO', 'user chooses not to create folder '
+                                + str(self.localdir) + '. Skip this backup.')
+                    sys.exit(1)
+                else:
+                    print('Pease answer explicitly, y(es) or n(o).')
+
         elif not self.localdir.is_dir():
             self.logger('ERR', str(self.localdir) + ' is not a directory')
             sys.exit(1)
