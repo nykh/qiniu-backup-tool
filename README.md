@@ -1,4 +1,4 @@
-# Qiniu Backup tool  v0.1
+# Qiniu Backup tool  v1.0
 
 This tool is developed for my internship at YewWah. Many YewWah resources are uploaded to and managed from a **Qiniu (TM) bucket**, a Chinese cloud service much like Dropbox, but supporting external link. This application perform **incremental** and **bidirectional** backup of (possibly multiple) Qiniu buckts.
 
@@ -38,6 +38,7 @@ This program requires the following Python library to run
 - **qiniu** - the official Qiniu API
 - **request** - the better HTTP library
 - **progressbar** - in particular I used [this one](https://pypi.python.org/pypi/progressbar-latest/2.4). Not sure why there are so many copies of this same library on PyPI.
+- **arrow** - the better date/time library
 
 If the local directories don't yet exist they will be created upon the first run of program.
 
