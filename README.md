@@ -45,7 +45,7 @@ If the local directories don't yet exist they will be created upon the first run
 
 Now that you have installed all the required library and prepared your key file, simplify run the program
 
-`python3 __main__.py`
+`python __main__.py`
 
 and your local folder will be synched with your Qiniu bucket.
 
