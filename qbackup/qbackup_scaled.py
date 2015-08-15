@@ -30,7 +30,7 @@ class QiniuBackupScaled(QiniuFlatBackup):
 
     def __init__(self, options, auth, logger):
         super(QiniuBackupScaled, self).__init__(options, auth, logger)
-        self.purge = options.getboolean('purge', fallback=True)
+        self.purge = options.get('purge', True)
 
     def synch(self):
         """

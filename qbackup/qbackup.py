@@ -23,19 +23,19 @@ class QiniuBackup:
     def __init__(self, options, auth, logger=None):
         self.bucketname = options['bucketname']
         self.bucketurl = options['bucketurl']
-        self.localdir = pathlib.Path(options['local_dir'])
+        self.localdir = pathlib.Path(options['localdir'])
 
-        self.verbose = options.getboolean('verbose', fallback=False)
-        self.log_to_file = options.getboolean('log', fallback=False)
+        self.verbose = options.get('verbose', False)
+        self.log = options.get('log', False)
 
-        self.download_size_threshold = options.getint('size_threshold',
-                                                      fallback=1024) * 1024
+        self.download_size_threshold = options.get('size_threshold', 1024)\
+                                       * 1024
         if self.download_size_threshold < self.CHUNK_SIZE * 2:
             self.download_size_threshold = self.CHUNK_SIZE * 2
 
         if logger is None:
             self.logger = EventLogger(verbose=self.verbose,
-                                      log_to_file=self.log_to_file)
+                                      log_to_file=self.log)
         else:
             self.logger = logger
 

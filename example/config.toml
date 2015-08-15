@@ -1,16 +1,16 @@
 [DEFAULT]
 ######## REQUIRED ########
-bucketname = llcetest; llcetest2
-bucketurl  = http://7xkpk9.com1.z0.glb.clouddn.com/; http://7xkunm.com1.z0.glb.clouddn.com/
-local_dir   = ../qiniu-backup; ../qiniu-backup2
+bucketname = "llcetest; llcetest2"
+bucketurl  = "http://7xkpk9.com1.z0.glb.clouddn.com/; http://7xkunm.com1.z0.glb.clouddn.com/"
+local_dir   = "../qiniu-backup; ../qiniu-backup2"
 
 ######## OPTIONAL ########
 # whether to print to the terminal
-verbose = True
+verbose = true
 # whether to generate a log file
-log = False
+log = false
 # whether to purge the temporary database
-purge = False
+purge = false
 
 # size threshold to start downloading by chunks. in unit of KB
 size_threshold = 2048
