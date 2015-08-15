@@ -10,15 +10,21 @@ clone the file to local directory
 
 or download from the Release tab.
 
-Create a **config.ini** for your own application. Each Qiniu bucket comes with a Name, an URL address (under `空间设置->域名设置`). You should specify the Name, URL, and the Local Directory you wish the bucket to synch with as a triple in the config file. If you wish to synch multiple buckets, concatenate them with a colon `;`. For example
+Create a **config.toml** for your own application. Each Qiniu bucket comes with a Name, an URL address (under `空间设置->域名设置`). You should specify the Name, URL, and the Local Directory you wish the bucket to synch with as a triple in the config file. If you wish to synch multiple buckets, simply add a new `[[bucket]]` section. For example:
 
-> bucketname = BucketA; BucketB; BucketC
+```toml
+[[buckets]]
+bucketname = "BucketA"
+bucketurl = "http://bucketA/"
+localdir = "A"
 
-> bucketurl = http://bucketA/; http://bucketB/; http://bucketC/
+[[buckets]]
+bucketname = "BucketB"
+bucketurl = "http://bucketB/"
+localdir = "B"
+```
 
-> local_dir = A; B; C
-
-You can find an example of working config.ini in the `example` folder.
+You can find an example of working config.ini in the `example` folder. For more information about TOML syntax, see the [TOML GitHub page](https://github.com/toml-lang/toml).
 
 ### key file
 
@@ -65,3 +71,7 @@ The Qiniu API already has built in chunk transmission for upload and will automa
 ### purge
 
 The program will generate temporary database file in a `./tmp/` directory, which contains all the remote files and their sizes. Normally the database file is no longer needed after successful execution and the program will delete them automatically. But you can set this to **False** and leave the database files behind. The database can be used by `example/validate-execution.py` script to check whether local and remote directories are identical.
+
+### size_threshold
+
+The program will begin chunk transmission if the file size is bigger than this value, measured in KB. Because the chunk size is 1MB, the lower bound of this value is two chunks (2MB = 2048 KB)
